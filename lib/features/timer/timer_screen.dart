@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/app_monitor.dart';
+import '../../core/focus_detector.dart';
 import '../../core/timer_service.dart';
 import '../../data/models/tag_model.dart';
 import '../../data/models/tree_species.dart';
@@ -57,7 +58,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     final treeState = switch (timer.state) {
       TimerState.completed => TreeVisualState.completed,
       TimerState.failed => TreeVisualState.dead,
-      _ => TreeVisualState.growing,
+      _ => timer.withering ? TreeVisualState.withering : TreeVisualState.growing,
     };
 
     // 累计进度：已累计秒数 + 当前段已过秒数（非休息时）
@@ -95,7 +96,13 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
       _ => '专注时长：$effectiveWorkMinutes 分钟 · 已累计 ${(totalAccumulated ~/ 60)} 分钟 / ${currentSpeciesData.milestoneMinutes} 分钟',
     };
 
-    return Padding(
+    return FocusDetector(
+      enabled: isRunning && !(timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak),
+      blacklist: settings.focusBlacklist,
+      onWitherWarning: () => ref.read(timerServiceProvider).setWithering(true),
+      onFocusBack: () => ref.read(timerServiceProvider).setWithering(false),
+      onFailed: () => ref.read(timerServiceProvider).setWithering(true),
+      child: Padding(
         padding: const EdgeInsets.all(24),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -306,6 +313,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
             ),
           ],
         ),
+      ),
     );
   }
 

@@ -54,6 +54,9 @@ class TimerService extends ChangeNotifier {
   int _pomodoroRound = 1;
   int _pomodoroTotalRounds = 4;
 
+  // 失焦枯萎状态
+  bool _withering = false;
+
   // 当前选中标签
   TagModel? _currentTag;
 
@@ -86,6 +89,7 @@ class TimerService extends ChangeNotifier {
   int get pomodoroRound => _pomodoroRound;
   int get pomodoroTotalRounds => _pomodoroTotalRounds;
   bool get isLongBreak => _pomodoroRound >= _pomodoroTotalRounds;
+  bool get withering => _withering;
   TagModel? get currentTag => _currentTag;
   String get currentSpecies => _currentSpecies;
   int get milestoneMinutes => _milestoneMinutes;
@@ -139,6 +143,7 @@ class TimerService extends ChangeNotifier {
 
     _mode = mode;
     _state = TimerState.running;
+    _withering = false;
 
     _pomodoroRound = pomodoroRound;
     _pomodoroTotalRounds = pomodoroTotalRounds;
@@ -191,6 +196,13 @@ class TimerService extends ChangeNotifier {
     unawaited(onFailed?.call());
   }
 
+  /// 设置枯萎状态（切黑名单应用时变灰）
+  void setWithering(bool value) {
+    if (_withering == value) return;
+    _withering = value;
+    notifyListeners();
+  }
+
   /// 重置回 Idle
   void reset() {
     _cancelTicker();
@@ -198,6 +210,7 @@ class TimerService extends ChangeNotifier {
     _stopwatch.reset();
 
     _state = TimerState.idle;
+    _withering = false;
     _elapsed = Duration.zero;
     _remaining = _targetDuration;
     _startTime = null;
