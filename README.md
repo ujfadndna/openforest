@@ -19,10 +19,8 @@
 - **应用使用追踪**：记录专注期间切换过的应用及时长
 - **主题**：跟随系统 / 浅色 / 深色
 
+<img width="1352" height="829" alt="image" src="https://github.com/user-attachments/assets/523c5997-58e8-4b5b-8891-5f9d56036313" />
 
-## 截图
-
-> ![Uploading image.png…]()
 
 
 ## 快速开始
