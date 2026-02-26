@@ -46,6 +46,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     final timer = ref.watch(timerServiceProvider);
     final settings = ref.watch(settingsControllerProvider);
     final selectedSpecies = ref.watch(selectedSpeciesProvider);
+    final accumulatedSeconds = ref.watch(accumulatedSecondsProvider);
 
     final isRunning = timer.state == TimerState.running;
     final isPaused = timer.state == TimerState.paused;
@@ -59,6 +60,22 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
       _ => TreeVisualState.growing,
     };
 
+    // 累计进度：已累计秒数 + 当前段已过秒数（非休息时）
+    final trees = ref.watch(treeSpeciesListProvider).asData?.value ?? [];
+    final currentSpeciesData = trees.firstWhere(
+      (t) => t.id == selectedSpecies,
+      orElse: () => trees.isNotEmpty
+          ? trees.first
+          : const TreeSpecies(id: 'oak', name: '橡树', price: 0, unlockedByDefault: true, description: '', milestoneMinutes: 45),
+    );
+    final requiredSeconds = currentSpeciesData.milestoneMinutes * 60;
+    final isBreakPhase = timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak;
+    final currentSegmentSeconds = (!isIdle && !isBreakPhase) ? timer.elapsed.inSeconds : 0;
+    final totalAccumulated = accumulatedSeconds + currentSegmentSeconds;
+    final treeProgress = requiredSeconds > 0
+        ? (totalAccumulated % requiredSeconds) / requiredSeconds
+        : 0.0;
+
     final displayDuration = switch (timer.mode) {
       TimerMode.stopwatch => timer.elapsed,
       _ => timer.remaining,
@@ -71,13 +88,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
         _selectedMode == TimerMode.pomodoro ? settings.pomodoroWorkMinutes : _selectedMinutes;
 
     final durationLabel = switch (_selectedMode) {
-      TimerMode.stopwatch => timer.milestoneMinutes > 0
-          ? '正计时·里程碑 ${timer.milestoneMinutes} 分钟（已完成 ${timer.milestonesCompleted} 棵）'
-          : '正计时：无限制',
+      TimerMode.stopwatch => '正计时 · 已累计 ${(totalAccumulated ~/ 60)} 分钟',
       TimerMode.pomodoro => timer.isPomodoroBreak
           ? (timer.isLongBreak ? '长休息 ${settings.pomodoroLongBreakMinutes} 分钟' : '休息 ${settings.pomodoroBreakMinutes} 分钟')
-          : '番茄钟 第${timer.pomodoroRound}/${timer.pomodoroTotalRounds}个 · 工作 $effectiveWorkMinutes 分钟',
-      _ => '专注时长：$effectiveWorkMinutes 分钟',
+          : '番茄钟 第${timer.pomodoroRound}/${timer.pomodoroTotalRounds}个 · 已累计 ${(totalAccumulated ~/ 60)} 分钟 / ${currentSpeciesData.milestoneMinutes} 分钟',
+      _ => '专注时长：$effectiveWorkMinutes 分钟 · 已累计 ${(totalAccumulated ~/ 60)} 分钟 / ${currentSpeciesData.milestoneMinutes} 分钟',
     };
 
     return Padding(
@@ -98,7 +113,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                         child: Stack(
                           children: [
                             AnimatedTree(
-                              progress: isIdle ? 0.15 : timer.progress,
+                              progress: isIdle ? 0.15 : treeProgress,
                               state: treeState,
                               seed: 1,
                               speciesId: selectedSpecies,
