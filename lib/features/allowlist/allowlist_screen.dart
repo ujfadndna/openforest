@@ -6,52 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_monitor.dart';
 import '../settings/settings_screen.dart';
 
-class AllowlistScreen extends ConsumerWidget {
+class AllowlistScreen extends ConsumerStatefulWidget {
   const AllowlistScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return DefaultTabController(
-      length: 2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Text('名单', style: Theme.of(context).textTheme.titleLarge),
-          ),
-          const SizedBox(height: 8),
-          const TabBar(
-            tabs: [
-              Tab(text: '白名单'),
-              Tab(text: '黑名单'),
-            ],
-          ),
-          const Expanded(
-            child: TabBarView(
-              children: [
-                _ListTab(type: _ListType.whitelist),
-                _ListTab(type: _ListType.blacklist),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  ConsumerState<AllowlistScreen> createState() => _AllowlistScreenState();
 }
 
-enum _ListType { whitelist, blacklist }
-
-class _ListTab extends ConsumerStatefulWidget {
-  const _ListTab({required this.type});
-  final _ListType type;
-
-  @override
-  ConsumerState<_ListTab> createState() => _ListTabState();
-}
-
-class _ListTabState extends ConsumerState<_ListTab> {
+class _AllowlistScreenState extends ConsumerState<AllowlistScreen> {
   List<String> _processes = [];
   bool _loadingProcesses = false;
 
@@ -62,24 +24,13 @@ class _ListTabState extends ConsumerState<_ListTab> {
   }
 
   void _showProcessPicker(BuildContext context, SettingsController controller) {
-    final settings = ref.read(settingsControllerProvider);
-    final existing = widget.type == _ListType.whitelist
-        ? settings.focusWhitelist
-        : settings.focusBlacklist;
-
+    final existing = ref.read(settingsControllerProvider).focusBlacklist;
     showDialog<void>(
       context: context,
       builder: (ctx) => _ProcessPickerDialog(
         processes: _processes,
         existing: existing,
-        type: widget.type,
-        onAdd: (name) {
-          if (widget.type == _ListType.whitelist) {
-            unawaited(controller.addToWhitelist(name));
-          } else {
-            unawaited(controller.addToBlacklist(name));
-          }
-        },
+        onAdd: (name) => unawaited(controller.addToBlacklist(name)),
       ),
     );
   }
@@ -88,55 +39,42 @@ class _ListTabState extends ConsumerState<_ListTab> {
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsControllerProvider);
     final controller = ref.read(settingsControllerProvider.notifier);
-    final list = widget.type == _ListType.whitelist
-        ? settings.focusWhitelist
-        : settings.focusBlacklist;
-
-    final color = widget.type == _ListType.whitelist
-        ? Theme.of(context).colorScheme.primaryContainer
-        : Theme.of(context).colorScheme.errorContainer;
-    final onColor = widget.type == _ListType.whitelist
-        ? Theme.of(context).colorScheme.onPrimaryContainer
-        : Theme.of(context).colorScheme.onErrorContainer;
-
-    final emptyText = widget.type == _ListType.whitelist
-        ? '白名单为空。\n添加后，专注期间切换到这些应用不会触发失焦计时。'
-        : '黑名单为空。\n添加后，专注期间切换到这些应用不会触发失焦计时，也不会有任何提示。';
+    final list = settings.focusBlacklist;
+    final color = Theme.of(context).colorScheme.errorContainer;
+    final onColor = Theme.of(context).colorScheme.onErrorContainer;
 
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: _loadingProcesses
-                      ? const SizedBox(
-                          width: 14, height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.add, size: 18),
-                  label: const Text('从运行中的进程添加'),
-                  onPressed: _loadingProcesses
-                      ? null
-                      : () async {
-                          await _loadProcesses();
-                          if (mounted) {
-                            _showProcessPicker(context, controller);
-                          }
-                        },
-                ),
-              ),
-            ],
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('黑名单', style: Theme.of(context).textTheme.titleLarge),
+          ),
+          Text(
+            '专注期间切换到黑名单应用，树会枯萎。',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            icon: _loadingProcesses
+                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.add, size: 18),
+            label: const Text('从运行中的进程添加'),
+            onPressed: _loadingProcesses
+                ? null
+                : () async {
+                    await _loadProcesses();
+                    if (mounted) _showProcessPicker(context, controller);
+                  },
           ),
           const SizedBox(height: 12),
           Expanded(
             child: list.isEmpty
                 ? Center(
                     child: Text(
-                      emptyText,
+                      '黑名单为空。\n添加后，专注期间切换到这些应用树会枯萎。',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
@@ -158,13 +96,7 @@ class _ListTabState extends ConsumerState<_ListTab> {
                         title: Text(app),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline),
-                          onPressed: () {
-                            if (widget.type == _ListType.whitelist) {
-                              unawaited(controller.removeFromWhitelist(app));
-                            } else {
-                              unawaited(controller.removeFromBlacklist(app));
-                            }
-                          },
+                          onPressed: () => unawaited(controller.removeFromBlacklist(app)),
                         ),
                       );
                     },
@@ -180,13 +112,11 @@ class _ProcessPickerDialog extends StatefulWidget {
   const _ProcessPickerDialog({
     required this.processes,
     required this.existing,
-    required this.type,
     required this.onAdd,
   });
 
   final List<String> processes;
   final List<String> existing;
-  final _ListType type;
   final void Function(String) onAdd;
 
   @override
@@ -203,7 +133,7 @@ class _ProcessPickerDialogState extends State<_ProcessPickerDialog> {
         .toList();
 
     return AlertDialog(
-      title: Text(widget.type == _ListType.whitelist ? '添加到白名单' : '添加到黑名单'),
+      title: const Text('添加到黑名单'),
       content: SizedBox(
         width: 320,
         height: 400,
@@ -229,9 +159,7 @@ class _ProcessPickerDialogState extends State<_ProcessPickerDialog> {
                         return ListTile(
                           dense: true,
                           title: Text(name),
-                          trailing: already
-                              ? const Icon(Icons.check, size: 16)
-                              : null,
+                          trailing: already ? const Icon(Icons.check, size: 16) : null,
                           enabled: !already,
                           onTap: already
                               ? null

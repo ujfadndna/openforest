@@ -9,10 +9,9 @@ import 'app_monitor.dart';
 
 /// 窗口失焦检测（Desktop）
 ///
-/// - 失焦后检查前台应用是否在白名单，在则忽略
-/// - 不在白名单：触发 onBlurWithUnknownApp（弹出"加入白名单"提示）
-/// - 超过 warningDelay：触发枯萎警告
-/// - 超过 failureDelay：触发失败
+/// - 切到黑名单应用 → 触发枯萎
+/// - 切到其他应用 → 忽略
+/// - 暂停（enabled=false）→ 不触发任何回调
 class FocusDetector extends StatefulWidget {
   const FocusDetector({
     super.key,
@@ -21,7 +20,6 @@ class FocusDetector extends StatefulWidget {
     required this.onWitherWarning,
     required this.onFailed,
     this.onFocusBack,
-    this.whitelist = const [],
     this.blacklist = const [],
     this.warningDelay = const Duration(seconds: 3),
     this.failureDelay = const Duration(seconds: 10),
@@ -33,10 +31,7 @@ class FocusDetector extends StatefulWidget {
   final VoidCallback onFailed;
   final VoidCallback? onFocusBack;
 
-  /// 允许切换的进程名列表（小写）— 不触发失焦计时
-  final List<String> whitelist;
-
-  /// 黑名单进程名列表（小写）— 静默忽略，不触发任何回调
+  /// 黑名单进程名列表（小写）— 切到这些应用触发枯萎
   final List<String> blacklist;
 
   final Duration warningDelay;
@@ -85,14 +80,14 @@ class _FocusDetectorState extends State<FocusDetector> with WindowListener {
   void onWindowBlur() {
     if (!mounted || !widget.enabled) return;
 
-    // 检查前台应用是否在白名单或黑名单
+    // 只有切到黑名单应用才触发枯萎
     if (Platform.isWindows) {
       final app = getForegroundAppName()?.toLowerCase();
-      if (app != null && app.isNotEmpty) {
-        if (widget.whitelist.contains(app) || widget.blacklist.contains(app)) {
-          return;
-        }
-      }
+      if (app == null || app.isEmpty) return;
+      if (!widget.blacklist.contains(app)) return;
+    } else {
+      // 非 Windows 平台不触发
+      return;
     }
 
     _clearTimers(resetWarned: false);

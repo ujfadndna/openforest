@@ -15,10 +15,8 @@ class SettingsState {
     required this.maxFocusMinutes,
     required this.pomodoroWorkMinutes,
     required this.pomodoroBreakMinutes,
-    required this.focusWarningSeconds,
     required this.themeMode,
     required this.loaded,
-    this.focusWhitelist = const [],
     this.focusBlacklist = const [],
     this.treeNotification = true,
   });
@@ -27,10 +25,8 @@ class SettingsState {
   final int maxFocusMinutes;
   final int pomodoroWorkMinutes;
   final int pomodoroBreakMinutes;
-  final int focusWarningSeconds;
   final ThemeMode themeMode;
   final bool loaded;
-  final List<String> focusWhitelist;
   final List<String> focusBlacklist;
   /// 种好树后是否弹出 Windows 通知
   final bool treeNotification;
@@ -40,10 +36,8 @@ class SettingsState {
     int? maxFocusMinutes,
     int? pomodoroWorkMinutes,
     int? pomodoroBreakMinutes,
-    int? focusWarningSeconds,
     ThemeMode? themeMode,
     bool? loaded,
-    List<String>? focusWhitelist,
     List<String>? focusBlacklist,
     bool? treeNotification,
   }) {
@@ -52,10 +46,8 @@ class SettingsState {
       maxFocusMinutes: maxFocusMinutes ?? this.maxFocusMinutes,
       pomodoroWorkMinutes: pomodoroWorkMinutes ?? this.pomodoroWorkMinutes,
       pomodoroBreakMinutes: pomodoroBreakMinutes ?? this.pomodoroBreakMinutes,
-      focusWarningSeconds: focusWarningSeconds ?? this.focusWarningSeconds,
       themeMode: themeMode ?? this.themeMode,
       loaded: loaded ?? this.loaded,
-      focusWhitelist: focusWhitelist ?? this.focusWhitelist,
       focusBlacklist: focusBlacklist ?? this.focusBlacklist,
       treeNotification: treeNotification ?? this.treeNotification,
     );
@@ -75,7 +67,6 @@ class SettingsController extends StateNotifier<SettingsState> {
             maxFocusMinutes: 120,
             pomodoroWorkMinutes: 25,
             pomodoroBreakMinutes: 5,
-            focusWarningSeconds: 3,
             themeMode: ThemeMode.system,
             loaded: false,
           ),
@@ -87,9 +78,7 @@ class SettingsController extends StateNotifier<SettingsState> {
   static const _kMaxFocus = 'max_focus_minutes';
   static const _kPomodoroWork = 'pomodoro_work_minutes';
   static const _kPomodoroBreak = 'pomodoro_break_minutes';
-  static const _kFocusWarn = 'focus_warning_seconds';
   static const _kThemeMode = 'theme_mode';
-  static const _kWhitelist = 'focus_whitelist';
   static const _kBlacklist = 'focus_blacklist';
   static const _kTreeNotification = 'tree_notification';
 
@@ -101,7 +90,6 @@ class SettingsController extends StateNotifier<SettingsState> {
     final maxFocus = _prefs?.getInt(_kMaxFocus) ?? state.maxFocusMinutes;
     final work = _prefs?.getInt(_kPomodoroWork) ?? state.pomodoroWorkMinutes;
     final rest = _prefs?.getInt(_kPomodoroBreak) ?? state.pomodoroBreakMinutes;
-    final warn = _prefs?.getInt(_kFocusWarn) ?? state.focusWarningSeconds;
     final themeIdx = _prefs?.getInt(_kThemeMode) ?? 0;
 
     final themeMode = switch (themeIdx) {
@@ -110,13 +98,11 @@ class SettingsController extends StateNotifier<SettingsState> {
       _ => ThemeMode.system,
     };
 
-    // 兜底修正范围与关系
     final fixed = _fixRanges(
       minFocusMinutes: minFocus,
       maxFocusMinutes: maxFocus,
       pomodoroWorkMinutes: work,
       pomodoroBreakMinutes: rest,
-      focusWarningSeconds: warn,
     );
 
     state = state.copyWith(
@@ -124,9 +110,7 @@ class SettingsController extends StateNotifier<SettingsState> {
       maxFocusMinutes: fixed.maxFocusMinutes,
       pomodoroWorkMinutes: fixed.pomodoroWorkMinutes,
       pomodoroBreakMinutes: fixed.pomodoroBreakMinutes,
-      focusWarningSeconds: fixed.focusWarningSeconds,
       themeMode: themeMode,
-      focusWhitelist: _prefs?.getStringList(_kWhitelist) ?? [],
       focusBlacklist: _prefs?.getStringList(_kBlacklist) ?? [],
       treeNotification: _prefs?.getBool(_kTreeNotification) ?? true,
       loaded: true,
@@ -169,13 +153,6 @@ class SettingsController extends StateNotifier<SettingsState> {
     await _prefs?.setInt(_kPomodoroBreak, state.pomodoroBreakMinutes);
   }
 
-  Future<void> setFocusWarningSeconds(int v) async {
-    await ensureLoaded();
-    final fixed = _fixRanges(focusWarningSeconds: v);
-    state = state.copyWith(focusWarningSeconds: fixed.focusWarningSeconds);
-    await _prefs?.setInt(_kFocusWarn, state.focusWarningSeconds);
-  }
-
   Future<void> setThemeMode(ThemeMode mode) async {
     await ensureLoaded();
     state = state.copyWith(themeMode: mode);
@@ -191,23 +168,6 @@ class SettingsController extends StateNotifier<SettingsState> {
     await ensureLoaded();
     state = state.copyWith(treeNotification: value);
     await _prefs?.setBool(_kTreeNotification, value);
-  }
-
-  Future<void> addToWhitelist(String appName) async {
-    await ensureLoaded();
-    final name = appName.trim().toLowerCase();
-    if (name.isEmpty) return;
-    if (state.focusWhitelist.contains(name)) return;
-    final updated = [...state.focusWhitelist, name];
-    state = state.copyWith(focusWhitelist: updated);
-    await _prefs?.setStringList(_kWhitelist, updated);
-  }
-
-  Future<void> removeFromWhitelist(String appName) async {
-    await ensureLoaded();
-    final updated = state.focusWhitelist.where((e) => e != appName).toList();
-    state = state.copyWith(focusWhitelist: updated);
-    await _prefs?.setStringList(_kWhitelist, updated);
   }
 
   Future<void> addToBlacklist(String appName) async {
@@ -232,28 +192,23 @@ class SettingsController extends StateNotifier<SettingsState> {
     int? maxFocusMinutes,
     int? pomodoroWorkMinutes,
     int? pomodoroBreakMinutes,
-    int? focusWarningSeconds,
   }) {
     var minF = (minFocusMinutes ?? state.minFocusMinutes).clamp(10, 30);
     var maxF = (maxFocusMinutes ?? state.maxFocusMinutes).clamp(60, 180);
     if (minF >= maxF) {
-      // 保证 min < max（简单处理：拉开 10 分钟）
       if (maxF - 10 >= 60) {
         minF = (maxF - 10).clamp(10, 30);
       } else {
         maxF = (minF + 10).clamp(60, 180);
       }
     }
-
     final work = (pomodoroWorkMinutes ?? state.pomodoroWorkMinutes).clamp(15, 60);
     final rest = (pomodoroBreakMinutes ?? state.pomodoroBreakMinutes).clamp(3, 30);
-    final warn = (focusWarningSeconds ?? state.focusWarningSeconds).clamp(3, 30);
     return _FixedRanges(
       minFocusMinutes: minF,
       maxFocusMinutes: maxF,
       pomodoroWorkMinutes: work,
       pomodoroBreakMinutes: rest,
-      focusWarningSeconds: warn,
     );
   }
 }
@@ -264,14 +219,12 @@ class _FixedRanges {
     required this.maxFocusMinutes,
     required this.pomodoroWorkMinutes,
     required this.pomodoroBreakMinutes,
-    required this.focusWarningSeconds,
   });
 
   final int minFocusMinutes;
   final int maxFocusMinutes;
   final int pomodoroWorkMinutes;
   final int pomodoroBreakMinutes;
-  final int focusWarningSeconds;
 }
 
 class SettingsScreen extends ConsumerWidget {
@@ -398,27 +351,6 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _SectionCard(
-                    title: '失焦检测（桌面端）',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _LabeledSlider(
-                          label: '失焦警告延迟：${settings.focusWarningSeconds} 秒',
-                          value: settings.focusWarningSeconds.toDouble(),
-                          min: 3,
-                          max: 30,
-                          divisions: 27,
-                          onChanged: (v) => unawaited(controller.setFocusWarningSeconds(v.round())),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '失焦超过警告延迟会变灰提示；超过警告延迟 + 7 秒（至少 10 秒）将判定失败。',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),

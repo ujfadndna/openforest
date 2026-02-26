@@ -80,27 +80,12 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
       _ => '专注时长：$effectiveWorkMinutes 分钟',
     };
 
-    // 为了保证“先警告、后失败”，失败阈值至少为 10 秒，
-    // 且不小于 warningDelay + 7 秒（默认 warning=3 → failure=10）。
-    final failureSeconds = (settings.focusWarningSeconds + 7);
-    final failureDelay = Duration(seconds: failureSeconds < 10 ? 10 : failureSeconds);
-
     return FocusDetector(
-      enabled: focusGuardEnabled,
-      warningDelay: Duration(seconds: settings.focusWarningSeconds),
-      failureDelay: failureDelay,
-      whitelist: settings.focusWhitelist,
+      enabled: isRunning && !(timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak),
       blacklist: settings.focusBlacklist,
-      onWitherWarning: () {
-        ref.read(timerServiceProvider).setWithering(true);
-      },
-      onFocusBack: () {
-        ref.read(timerServiceProvider).setWithering(false);
-      },
-      onFailed: () {
-        // 失焦超时：保持枯萎状态，计时器继续运行，回来聚焦可救活
-        ref.read(timerServiceProvider).setWithering(true);
-      },
+      onWitherWarning: () => ref.read(timerServiceProvider).setWithering(true),
+      onFocusBack: () => ref.read(timerServiceProvider).setWithering(false),
+      onFailed: () => ref.read(timerServiceProvider).setWithering(true),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Row(
@@ -236,8 +221,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () => _confirmAbandon(context),
-                            icon: const Icon(Icons.close),
-                            label: const Text('放弃'),
+                            icon: const Icon(Icons.stop),
+                            label: const Text('结束计时'),
                           ),
                         ),
                       ],
@@ -323,8 +308,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('放弃本次专注？'),
-          content: const Text('放弃会导致树枯萎，并记为失败记录。确定要放弃吗？'),
+          title: const Text('结束计时？'),
+          content: const Text('当前这棵树的进度会清零，不计入记录。之前种好的树不受影响。'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -332,7 +317,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('确定放弃'),
+              child: const Text('结束'),
             ),
           ],
         );
@@ -340,7 +325,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     );
 
     if (ok == true) {
-      ref.read(timerServiceProvider).abandonTimer();
+      ref.read(timerServiceProvider).reset();
       unawaited(ref.read(appMonitorProvider).stop());
     }
   }
