@@ -15,6 +15,8 @@ class SettingsState {
     required this.maxFocusMinutes,
     required this.pomodoroWorkMinutes,
     required this.pomodoroBreakMinutes,
+    required this.pomodoroRounds,
+    required this.pomodoroLongBreakMinutes,
     required this.themeMode,
     required this.loaded,
     this.focusBlacklist = const [],
@@ -25,6 +27,8 @@ class SettingsState {
   final int maxFocusMinutes;
   final int pomodoroWorkMinutes;
   final int pomodoroBreakMinutes;
+  final int pomodoroRounds;
+  final int pomodoroLongBreakMinutes;
   final ThemeMode themeMode;
   final bool loaded;
   final List<String> focusBlacklist;
@@ -36,6 +40,8 @@ class SettingsState {
     int? maxFocusMinutes,
     int? pomodoroWorkMinutes,
     int? pomodoroBreakMinutes,
+    int? pomodoroRounds,
+    int? pomodoroLongBreakMinutes,
     ThemeMode? themeMode,
     bool? loaded,
     List<String>? focusBlacklist,
@@ -46,6 +52,8 @@ class SettingsState {
       maxFocusMinutes: maxFocusMinutes ?? this.maxFocusMinutes,
       pomodoroWorkMinutes: pomodoroWorkMinutes ?? this.pomodoroWorkMinutes,
       pomodoroBreakMinutes: pomodoroBreakMinutes ?? this.pomodoroBreakMinutes,
+      pomodoroRounds: pomodoroRounds ?? this.pomodoroRounds,
+      pomodoroLongBreakMinutes: pomodoroLongBreakMinutes ?? this.pomodoroLongBreakMinutes,
       themeMode: themeMode ?? this.themeMode,
       loaded: loaded ?? this.loaded,
       focusBlacklist: focusBlacklist ?? this.focusBlacklist,
@@ -67,6 +75,8 @@ class SettingsController extends StateNotifier<SettingsState> {
             maxFocusMinutes: 120,
             pomodoroWorkMinutes: 25,
             pomodoroBreakMinutes: 5,
+            pomodoroRounds: 4,
+            pomodoroLongBreakMinutes: 15,
             themeMode: ThemeMode.system,
             loaded: false,
           ),
@@ -78,6 +88,8 @@ class SettingsController extends StateNotifier<SettingsState> {
   static const _kMaxFocus = 'max_focus_minutes';
   static const _kPomodoroWork = 'pomodoro_work_minutes';
   static const _kPomodoroBreak = 'pomodoro_break_minutes';
+  static const _kPomodoroRounds = 'pomodoro_rounds';
+  static const _kPomodoroLongBreak = 'pomodoro_long_break_minutes';
   static const _kThemeMode = 'theme_mode';
   static const _kBlacklist = 'focus_blacklist';
   static const _kTreeNotification = 'tree_notification';
@@ -90,6 +102,8 @@ class SettingsController extends StateNotifier<SettingsState> {
     final maxFocus = _prefs?.getInt(_kMaxFocus) ?? state.maxFocusMinutes;
     final work = _prefs?.getInt(_kPomodoroWork) ?? state.pomodoroWorkMinutes;
     final rest = _prefs?.getInt(_kPomodoroBreak) ?? state.pomodoroBreakMinutes;
+    final rounds = _prefs?.getInt(_kPomodoroRounds) ?? state.pomodoroRounds;
+    final longBreak = _prefs?.getInt(_kPomodoroLongBreak) ?? state.pomodoroLongBreakMinutes;
     final themeIdx = _prefs?.getInt(_kThemeMode) ?? 0;
 
     final themeMode = switch (themeIdx) {
@@ -110,6 +124,8 @@ class SettingsController extends StateNotifier<SettingsState> {
       maxFocusMinutes: fixed.maxFocusMinutes,
       pomodoroWorkMinutes: fixed.pomodoroWorkMinutes,
       pomodoroBreakMinutes: fixed.pomodoroBreakMinutes,
+      pomodoroRounds: rounds.clamp(2, 8),
+      pomodoroLongBreakMinutes: longBreak.clamp(10, 30),
       themeMode: themeMode,
       focusBlacklist: _prefs?.getStringList(_kBlacklist) ?? [],
       treeNotification: _prefs?.getBool(_kTreeNotification) ?? true,
@@ -151,6 +167,18 @@ class SettingsController extends StateNotifier<SettingsState> {
     final fixed = _fixRanges(pomodoroBreakMinutes: v);
     state = state.copyWith(pomodoroBreakMinutes: fixed.pomodoroBreakMinutes);
     await _prefs?.setInt(_kPomodoroBreak, state.pomodoroBreakMinutes);
+  }
+
+  Future<void> setPomodoroRounds(int v) async {
+    await ensureLoaded();
+    state = state.copyWith(pomodoroRounds: v.clamp(2, 8));
+    await _prefs?.setInt(_kPomodoroRounds, state.pomodoroRounds);
+  }
+
+  Future<void> setPomodoroLongBreakMinutes(int v) async {
+    await ensureLoaded();
+    state = state.copyWith(pomodoroLongBreakMinutes: v.clamp(10, 30));
+    await _prefs?.setInt(_kPomodoroLongBreak, state.pomodoroLongBreakMinutes);
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
@@ -340,12 +368,30 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         _LabeledSlider(
-                          label: '休息时长：${settings.pomodoroBreakMinutes} 分钟',
+                          label: '短休息时长：${settings.pomodoroBreakMinutes} 分钟',
                           value: settings.pomodoroBreakMinutes.toDouble(),
                           min: 3,
                           max: 30,
                           divisions: 27,
                           onChanged: (v) => unawaited(controller.setPomodoroBreakMinutes(v.round())),
+                        ),
+                        const SizedBox(height: 8),
+                        _LabeledSlider(
+                          label: '专注轮数：${settings.pomodoroRounds} 轮',
+                          value: settings.pomodoroRounds.toDouble(),
+                          min: 2,
+                          max: 8,
+                          divisions: 6,
+                          onChanged: (v) => unawaited(controller.setPomodoroRounds(v.round())),
+                        ),
+                        const SizedBox(height: 8),
+                        _LabeledSlider(
+                          label: '长休息时长：${settings.pomodoroLongBreakMinutes} 分钟',
+                          value: settings.pomodoroLongBreakMinutes.toDouble(),
+                          min: 10,
+                          max: 30,
+                          divisions: 20,
+                          onChanged: (v) => unawaited(controller.setPomodoroLongBreakMinutes(v.round())),
                         ),
                       ],
                     ),

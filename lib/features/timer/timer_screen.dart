@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/app_monitor.dart';
-import '../../core/focus_detector.dart';
 import '../../core/timer_service.dart';
 import '../../data/models/tag_model.dart';
 import '../../data/models/tree_species.dart';
@@ -22,6 +21,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
   int _selectedMinutes = 25;
   TimerMode _selectedMode = TimerMode.countdown;
   TagModel? _selectedTag;
+  int _nextPomodoroRound = 1;
+  String? _nextSpeciesOverride;
 
   @override
   void dispose() {
@@ -52,13 +53,10 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     final isCompleted = timer.state == TimerState.completed;
     final isFailed = timer.state == TimerState.failed;
 
-    final focusGuardEnabled =
-        isRunning && !(timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak);
-
     final treeState = switch (timer.state) {
       TimerState.completed => TreeVisualState.completed,
       TimerState.failed => TreeVisualState.dead,
-      _ => timer.withering ? TreeVisualState.withering : TreeVisualState.growing,
+      _ => TreeVisualState.growing,
     };
 
     final displayDuration = switch (timer.mode) {
@@ -76,17 +74,13 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
       TimerMode.stopwatch => timer.milestoneMinutes > 0
           ? '正计时·里程碑 ${timer.milestoneMinutes} 分钟（已完成 ${timer.milestonesCompleted} 棵）'
           : '正计时：无限制',
-      TimerMode.pomodoro => '番茄钟工作：$effectiveWorkMinutes 分钟',
+      TimerMode.pomodoro => timer.isPomodoroBreak
+          ? (timer.isLongBreak ? '长休息 ${settings.pomodoroLongBreakMinutes} 分钟' : '休息 ${settings.pomodoroBreakMinutes} 分钟')
+          : '番茄钟 第${timer.pomodoroRound}/${timer.pomodoroTotalRounds}个 · 工作 $effectiveWorkMinutes 分钟',
       _ => '专注时长：$effectiveWorkMinutes 分钟',
     };
 
-    return FocusDetector(
-      enabled: isRunning && !(timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak),
-      blacklist: settings.focusBlacklist,
-      onWitherWarning: () => ref.read(timerServiceProvider).setWithering(true),
-      onFocusBack: () => ref.read(timerServiceProvider).setWithering(false),
-      onFailed: () => ref.read(timerServiceProvider).setWithering(true),
-      child: Padding(
+    return Padding(
         padding: const EdgeInsets.all(24),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -229,9 +223,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      _selectedMode == TimerMode.pomodoro
-                          ? (timer.isPomodoroBreak ? '休息中：可自由离开应用' : '工作中：请保持专注（失焦会枯萎）')
-                          : '专注中：请保持专注（失焦会枯萎）',
+                      timer.isPomodoroBreak ? '休息中：可自由离开应用' : '专注中',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
@@ -240,18 +232,52 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                   if (isCompleted) ...[
                     _CompletedPanel(
                       isPomodoro: timer.mode == TimerMode.pomodoro,
-                      onReset: () => ref.read(timerServiceProvider).reset(),
+                      isPomodoroBreak: timer.isPomodoroBreak,
+                      pomodoroRound: timer.pomodoroRound,
+                      pomodoroTotalRounds: timer.pomodoroTotalRounds,
+                      isLongBreak: timer.isLongBreak,
+                      onReset: () {
+                        setState(() {
+                          _nextPomodoroRound = 1;
+                          _nextSpeciesOverride = null;
+                        });
+                        ref.read(timerServiceProvider).reset();
+                      },
+                      onSpeciesSelected: (id) => setState(() => _nextSpeciesOverride = id),
+                      selectedSpeciesOverride: _nextSpeciesOverride,
                       onStartBreak: timer.mode == TimerMode.pomodoro && !timer.isPomodoroBreak
                           ? () {
-                              final breakMinutes = settings.pomodoroBreakMinutes;
+                              final isLong = timer.isLongBreak;
+                              final breakMinutes = isLong
+                                  ? settings.pomodoroLongBreakMinutes
+                                  : settings.pomodoroBreakMinutes;
                               ref.read(timerServiceProvider).startTimer(
                                     Duration(minutes: breakMinutes),
                                     TimerMode.pomodoro,
                                     isBreak: true,
+                                    pomodoroRound: timer.pomodoroRound,
+                                    pomodoroTotalRounds: timer.pomodoroTotalRounds,
                                   );
                             }
                           : null,
+                      onStartNextWork: timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak
+                          ? () {
+                              final nextRound = (timer.pomodoroRound % timer.pomodoroTotalRounds) + 1;
+                              setState(() => _nextPomodoroRound = nextRound);
+                              final String species = _nextSpeciesOverride ?? ref.read(selectedSpeciesProvider);
+                              ref.read(timerServiceProvider).setCurrentSpecies(species);
+                              ref.read(timerServiceProvider).startTimer(
+                                    Duration(minutes: settings.pomodoroWorkMinutes),
+                                    TimerMode.pomodoro,
+                                    isBreak: false,
+                                    pomodoroRound: nextRound,
+                                    pomodoroTotalRounds: timer.pomodoroTotalRounds,
+                                  );
+                              setState(() => _nextSpeciesOverride = null);
+                            }
+                          : null,
                       breakMinutes: settings.pomodoroBreakMinutes,
+                      longBreakMinutes: settings.pomodoroLongBreakMinutes,
                     ),
                   ],
 
@@ -265,7 +291,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -299,8 +324,14 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     } else {
       ref.read(timerServiceProvider).setMilestoneMinutes(0);
     }
-    ref.read(timerServiceProvider).startTimer(duration, _selectedMode, isBreak: false);
-    ref.read(appMonitorProvider).start(null); // sessionId 在完成后更新
+    ref.read(timerServiceProvider).startTimer(
+      duration,
+      _selectedMode,
+      isBreak: false,
+      pomodoroRound: _nextPomodoroRound,
+      pomodoroTotalRounds: settings.pomodoroRounds,
+    );
+    ref.read(appMonitorProvider).start(null);
   }
 
   Future<void> _confirmAbandon(BuildContext context) async {
@@ -369,21 +400,50 @@ class _ModeToggle extends StatelessWidget {
   }
 }
 
-class _CompletedPanel extends StatelessWidget {
+class _CompletedPanel extends ConsumerWidget {
   const _CompletedPanel({
     required this.isPomodoro,
+    required this.isPomodoroBreak,
+    required this.pomodoroRound,
+    required this.pomodoroTotalRounds,
+    required this.isLongBreak,
     required this.onReset,
     required this.breakMinutes,
+    required this.longBreakMinutes,
+    required this.onSpeciesSelected,
+    this.selectedSpeciesOverride,
     this.onStartBreak,
+    this.onStartNextWork,
   });
 
   final bool isPomodoro;
+  final bool isPomodoroBreak;
+  final int pomodoroRound;
+  final int pomodoroTotalRounds;
+  final bool isLongBreak;
   final int breakMinutes;
+  final int longBreakMinutes;
   final VoidCallback onReset;
+  final ValueChanged<String> onSpeciesSelected;
+  final String? selectedSpeciesOverride;
   final VoidCallback? onStartBreak;
+  final VoidCallback? onStartNextWork;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trees = ref.watch(treeSpeciesListProvider).asData?.value ?? [];
+    final currentSpecies = ref.watch(selectedSpeciesProvider);
+    final displaySpecies = selectedSpeciesOverride ?? currentSpecies;
+
+    String title;
+    if (isPomodoro && !isPomodoroBreak) {
+      title = '第 $pomodoroRound/$pomodoroTotalRounds 棵树种下了';
+    } else if (isPomodoro && isPomodoroBreak) {
+      title = '休息结束';
+    } else {
+      title = '专注完成，树种下了';
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -391,15 +451,61 @@ class _CompletedPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '专注完成，树种下了',
+              title,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium,
             ),
+            // 番茄钟工作段完成后显示树种选择
+            if (isPomodoro && !isPomodoroBreak && trees.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('下一棵选什么？', style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 56,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: trees.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, i) {
+                    final t = trees[i];
+                    final selected = displaySpecies == t.id;
+                    return GestureDetector(
+                      onTap: () => onSpeciesSelected(t.id),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: selected
+                              ? Theme.of(context).colorScheme.primaryContainer
+                              : Theme.of(context).colorScheme.surfaceContainerHighest,
+                          border: selected
+                              ? Border.all(color: Theme.of(context).colorScheme.primary, width: 1.5)
+                              : null,
+                        ),
+                        child: Text(
+                          t.name,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: selected ? Theme.of(context).colorScheme.onPrimaryContainer : null,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             if (isPomodoro && onStartBreak != null) ...[
               FilledButton(
                 onPressed: onStartBreak,
-                child: Text('开始休息 $breakMinutes 分钟'),
+                child: Text(isLongBreak ? '开始长休息 $longBreakMinutes 分钟' : '开始休息 $breakMinutes 分钟'),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (isPomodoro && onStartNextWork != null) ...[
+              FilledButton(
+                onPressed: onStartNextWork,
+                child: const Text('开始下一轮专注'),
               ),
               const SizedBox(height: 8),
             ],

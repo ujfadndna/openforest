@@ -47,11 +47,12 @@ class TimerService extends ChangeNotifier {
   DateTime? _startTime;
   DateTime? _endTime;
 
-  // 番茄钟：是否处于“休息阶段”
+  // 番茄钟：是否处于”休息阶段”
   bool _isPomodoroBreak = false;
 
-  // 失焦枯萎警告状态（用于树动画变灰）
-  bool _withering = false;
+  // 番茄钟轮次
+  int _pomodoroRound = 1;
+  int _pomodoroTotalRounds = 4;
 
   // 当前选中标签
   TagModel? _currentTag;
@@ -82,7 +83,9 @@ class TimerService extends ChangeNotifier {
   DateTime? get startTime => _startTime;
   DateTime? get endTime => _endTime;
   bool get isPomodoroBreak => _isPomodoroBreak;
-  bool get withering => _withering;
+  int get pomodoroRound => _pomodoroRound;
+  int get pomodoroTotalRounds => _pomodoroTotalRounds;
+  bool get isLongBreak => _pomodoroRound >= _pomodoroTotalRounds;
   TagModel? get currentTag => _currentTag;
   String get currentSpecies => _currentSpecies;
   int get milestoneMinutes => _milestoneMinutes;
@@ -129,12 +132,16 @@ class TimerService extends ChangeNotifier {
     Duration duration,
     TimerMode mode, {
     bool isBreak = false,
+    int pomodoroRound = 1,
+    int pomodoroTotalRounds = 4,
   }) {
     _cancelTicker();
 
     _mode = mode;
     _state = TimerState.running;
-    _withering = false;
+
+    _pomodoroRound = pomodoroRound;
+    _pomodoroTotalRounds = pomodoroTotalRounds;
 
     _targetDuration = duration;
     _isPomodoroBreak = mode == TimerMode.pomodoro ? isBreak : false;
@@ -170,11 +177,10 @@ class TimerService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 放弃/中断（触发枯萎）
+  /// 放弃/中断
   void abandonTimer() {
     if (!isActive) return;
 
-    _withering = true;
     _state = TimerState.failed;
     _endTime = DateTime.now();
 
@@ -185,13 +191,6 @@ class TimerService extends ChangeNotifier {
     unawaited(onFailed?.call());
   }
 
-  /// 设置枯萎状态（用于失焦警告时变灰）
-  void setWithering(bool value) {
-    if (_withering == value) return;
-    _withering = value;
-    notifyListeners();
-  }
-
   /// 重置回 Idle
   void reset() {
     _cancelTicker();
@@ -199,12 +198,12 @@ class TimerService extends ChangeNotifier {
     _stopwatch.reset();
 
     _state = TimerState.idle;
-    _withering = false;
     _elapsed = Duration.zero;
     _remaining = _targetDuration;
     _startTime = null;
     _endTime = null;
     _isPomodoroBreak = false;
+    _pomodoroRound = 1;
     _currentTag = null;
     _currentSpecies = 'oak';
     _milestoneMinutes = 0;

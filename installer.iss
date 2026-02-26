@@ -1,5 +1,5 @@
 #define MyAppName "OpenForest"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "ujfadndna"
 #define MyAppURL "https://github.com/ujfadndna/openforest"
 #define MyAppExeName "openforest.exe"
@@ -17,7 +17,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=D:\Forest\build
-OutputBaseFilename=OpenForest-Setup-v{#MyAppVersion}
+OutputBaseFilename=OpenForest_{#MyAppVersion}_x64-setup
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern

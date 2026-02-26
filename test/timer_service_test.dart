@@ -44,7 +44,6 @@ void main() {
 
     await completer.future.timeout(const Duration(seconds: 1));
     expect(service.state, TimerState.failed);
-    expect(service.withering, true);
   });
 }
 

@@ -8,7 +8,7 @@ void main() {
 
   setUp(() {
     // SharedPreferences 使用内存 mock，避免真实平台依赖。
-    SharedPreferences.setMockInitialValues(<String, Object?>{});
+    SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
   test('ensureLoaded loads defaults when prefs empty', () async {
@@ -20,7 +20,8 @@ void main() {
     expect(controller.state.maxFocusMinutes, 120);
     expect(controller.state.pomodoroWorkMinutes, 25);
     expect(controller.state.pomodoroBreakMinutes, 5);
-    expect(controller.state.focusWarningSeconds, 3);
+    expect(controller.state.pomodoroRounds, 4);
+    expect(controller.state.pomodoroLongBreakMinutes, 15);
     expect(controller.state.themeMode, ThemeMode.system);
   });
 
