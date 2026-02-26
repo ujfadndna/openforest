@@ -19,19 +19,11 @@
 - **应用使用追踪**：记录专注期间切换过的应用及时长
 - **主题**：跟随系统 / 浅色 / 深色
 
-## 树种
-
-| 树种 | 里程碑 | 介绍 |
-|------|--------|------|
-| 竹子 | 45 分钟 | 破土而出，一夜之间便能触碰天空 |
-| 樱花树 | 60 分钟 | 等待是它的修行，盛开是它的回答 |
-| 枫树 | 75 分钟 | 把时间染成红色，然后安静地落下 |
-| 橡树 | 90 分钟 | 每一粒橡果，都藏着一片森林的可能 |
-| 松树 | 120 分钟 | 雪压不弯，风吹不倒，只是静静地长 |
 
 ## 截图
 
-> 待补充
+> ![Uploading image.png…]()
+
 
 ## 快速开始
 
@@ -94,20 +86,6 @@ assets/
 | [local_notifier](https://pub.dev/packages/local_notifier) | 系统通知 |
 | [shared_preferences](https://pub.dev/packages/shared_preferences) | 设置持久化 |
 
-## 添加树种
-
-编辑 `assets/trees/trees.json`，新增一条记录：
-
-```json
-{
-  "id": "willow",
-  "name": "柳树",
-  "price": 150,
-  "unlocked": false,
-  "milestoneMinutes": 60,
-  "description": "垂柳依依，随风摇曳"
-}
-```
 
 然后在 `lib/features/timer/tree_painter.dart` 的 `_kStyles` 里添加对应的视觉参数。
 
