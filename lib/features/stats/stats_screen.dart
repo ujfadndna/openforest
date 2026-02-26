@@ -11,7 +11,7 @@ class StatsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Column(
         children: [
           Padding(
@@ -33,6 +33,7 @@ class StatsScreen extends StatelessWidget {
               Tab(text: '本周'),
               Tab(text: '本月'),
               Tab(text: '标签'),
+              Tab(text: '应用'),
             ],
           ),
           Expanded(
@@ -42,6 +43,7 @@ class StatsScreen extends StatelessWidget {
                 _StatsTab(period: StatsPeriod.week),
                 _StatsTab(period: StatsPeriod.month),
                 const _TagStatsTab(),
+                const _AppUsageTab(),
               ],
             ),
           ),
@@ -297,7 +299,125 @@ class _SummaryCards extends StatelessWidget {
   }
 }
 
-// ─── 标签统计 Tab ──────────────────────────────────────────────────────────────
+// ─── 应用使用统计 Tab ──────────────────────────────────────────────────────────
+
+class _AppUsageTab extends ConsumerStatefulWidget {
+  const _AppUsageTab();
+
+  @override
+  ConsumerState<_AppUsageTab> createState() => _AppUsageTabState();
+}
+
+class _AppUsageTabState extends ConsumerState<_AppUsageTab> {
+  StatsPeriod _period = StatsPeriod.today;
+
+  @override
+  Widget build(BuildContext context) {
+    final statsAsync = ref.watch(appUsageStatsProvider(_period));
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SegmentedButton<StatsPeriod>(
+            segments: const [
+              ButtonSegment(value: StatsPeriod.today, label: Text('今日')),
+              ButtonSegment(value: StatsPeriod.week, label: Text('本周')),
+              ButtonSegment(value: StatsPeriod.month, label: Text('本月')),
+            ],
+            selected: {_period},
+            onSelectionChanged: (s) => setState(() => _period = s.first),
+            showSelectedIcon: false,
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: statsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('加载失败：$e')),
+              data: (stats) {
+                if (stats.isEmpty) {
+                  return const Center(child: Text('暂无数据\n专注期间切换应用后会记录在这里'));
+                }
+                final totalSeconds = stats.fold<int>(0, (s, e) => s + e.totalSeconds);
+                return ListView.separated(
+                  itemCount: stats.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, i) {
+                    final s = stats[i];
+                    final ratio = totalSeconds > 0 ? s.totalSeconds / totalSeconds : 0.0;
+                    final mins = s.totalSeconds ~/ 60;
+                    final secs = s.totalSeconds % 60;
+                    final timeText = mins > 0 ? '$mins 分 $secs 秒' : '$secs 秒';
+                    final initial = s.appName.isNotEmpty
+                        ? s.appName[0].toUpperCase()
+                        : '?';
+
+                    return Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 14,
+                          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                          child: Text(
+                            initial,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 100,
+                          child: Text(
+                            s.appName,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: ratio,
+                              minHeight: 10,
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.surfaceContainerHighest,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 72,
+                          child: Text(
+                            timeText,
+                            style: Theme.of(context).textTheme.bodySmall,
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        SizedBox(
+                          width: 36,
+                          child: Text(
+                            '${(ratio * 100).round()}%',
+                            style: Theme.of(context).textTheme.bodySmall,
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 class _TagStatsTab extends ConsumerWidget {
   const _TagStatsTab();

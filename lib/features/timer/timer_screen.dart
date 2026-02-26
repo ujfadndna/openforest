@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_monitor.dart';
 import '../../core/focus_detector.dart';
 import '../../core/timer_service.dart';
 import '../../data/models/tag_model.dart';
+import '../../data/models/tree_species.dart';
 import '../settings/settings_screen.dart';
+import '../shop/shop_provider.dart';
 import 'timer_provider.dart';
 import 'tree_painter.dart';
 
@@ -19,6 +22,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
   int _selectedMinutes = 25;
   TimerMode _selectedMode = TimerMode.countdown;
   TagModel? _selectedTag;
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -36,7 +44,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
   Widget build(BuildContext context) {
     final timer = ref.watch(timerServiceProvider);
     final settings = ref.watch(settingsControllerProvider);
-    final coinsAsync = ref.watch(totalCoinsProvider);
+    final selectedSpecies = ref.watch(selectedSpeciesProvider);
 
     final isRunning = timer.state == TimerState.running;
     final isPaused = timer.state == TimerState.paused;
@@ -58,12 +66,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
       _ => timer.remaining,
     };
 
-    final coinsText = coinsAsync.when(
-      data: (v) => v.toString(),
-      loading: () => '…',
-      error: (_, __) => '0',
-    );
-
     final sliderMin = settings.minFocusMinutes.toDouble();
     final sliderMax = settings.maxFocusMinutes.toDouble();
 
@@ -71,7 +73,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
         _selectedMode == TimerMode.pomodoro ? settings.pomodoroWorkMinutes : _selectedMinutes;
 
     final durationLabel = switch (_selectedMode) {
-      TimerMode.stopwatch => '正计时：无限制',
+      TimerMode.stopwatch => timer.milestoneMinutes > 0
+          ? '正计时·里程碑 ${timer.milestoneMinutes} 分钟（已完成 ${timer.milestonesCompleted} 棵）'
+          : '正计时：无限制',
       TimerMode.pomodoro => '番茄钟工作：$effectiveWorkMinutes 分钟',
       _ => '专注时长：$effectiveWorkMinutes 分钟',
     };
@@ -85,25 +89,17 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
       enabled: focusGuardEnabled,
       warningDelay: Duration(seconds: settings.focusWarningSeconds),
       failureDelay: failureDelay,
+      whitelist: settings.focusWhitelist,
+      blacklist: settings.focusBlacklist,
       onWitherWarning: () {
         ref.read(timerServiceProvider).setWithering(true);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('检测到窗口失焦：请回到应用，否则树会枯萎…')),
-          );
-        }
       },
       onFocusBack: () {
         ref.read(timerServiceProvider).setWithering(false);
       },
       onFailed: () {
-        // 失焦超过阈值：直接判定失败
-        ref.read(timerServiceProvider).abandonTimer();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('失焦过久：本次专注失败，树枯萎了')),
-          );
-        }
+        // 失焦超时：保持枯萎状态，计时器继续运行，回来聚焦可救活
+        ref.read(timerServiceProvider).setWithering(true);
       },
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -115,30 +111,50 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
               flex: 5,
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.monetization_on_outlined),
-                      const SizedBox(width: 8),
-                      Text(
-                        '金币：$coinsText',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 12),
                   Expanded(
                     child: Center(
                       child: AspectRatio(
                         aspectRatio: 1,
-                        child: AnimatedTree(
-                          progress: isIdle ? 0.15 : timer.progress,
-                          state: treeState,
-                          seed: 1,
-                          speciesId: 'oak',
+                        child: Stack(
+                          children: [
+                            AnimatedTree(
+                              progress: isIdle ? 0.15 : timer.progress,
+                              state: treeState,
+                              seed: 1,
+                              speciesId: selectedSpecies,
+                            ),
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: CustomPaint(
+                                size: const Size(double.infinity, 12),
+                                painter: _SoilLinePainter(),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
+                  const SizedBox(height: 6),
+                  // 当前树种名
+                  Builder(builder: (context) {
+                    final trees = ref.watch(treeSpeciesListProvider).asData?.value ?? [];
+                    final name = trees.firstWhere(
+                      (t) => t.id == selectedSpecies,
+                      orElse: () => trees.isNotEmpty ? trees.first
+                          : const TreeSpecies(id: '', name: '', price: 0, unlockedByDefault: true, description: '', milestoneMinutes: 90),
+                    ).name;
+                    return Text(
+                      name,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 4),
                 ],
               ),
             ),
@@ -160,11 +176,12 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                     onChanged: (m) => setState(() => _selectedMode = m),
                   ),
                   const SizedBox(height: 12),
-                  if (isIdle)
+                  if (isIdle) ...[
                     _TagSelector(
                       selected: _selectedTag,
                       onChanged: (t) => setState(() => _selectedTag = t),
                     ),
+                  ],
                   const SizedBox(height: 24),
                   Text(
                     _formatDuration(displayDuration),
@@ -237,7 +254,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
 
                   if (isCompleted) ...[
                     _CompletedPanel(
-                      coinsEarned: timer.calculateCoinsForDuration(timer.targetDuration),
                       isPomodoro: timer.mode == TimerMode.pomodoro,
                       onReset: () => ref.read(timerServiceProvider).reset(),
                       onStartBreak: timer.mode == TimerMode.pomodoro && !timer.isPomodoroBreak
@@ -256,7 +272,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
 
                   if (isFailed) ...[
                     _FailedPanel(
-                      lostCoins: timer.calculateCoinsForDuration(timer.elapsed),
                       onReset: () => ref.read(timerServiceProvider).reset(),
                     ),
                   ],
@@ -277,9 +292,30 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     };
 
     ref.read(timerServiceProvider).setCurrentTag(_selectedTag);
-    ref
-        .read(timerServiceProvider)
-        .startTimer(duration, _selectedMode, isBreak: false);
+    ref.read(timerServiceProvider).setCurrentSpecies(ref.read(selectedSpeciesProvider));
+
+    // 正计时模式：从树种数据里取里程碑时长
+    if (_selectedMode == TimerMode.stopwatch) {
+      final trees = ref.read(treeSpeciesListProvider).asData?.value ?? [];
+      final species = trees.firstWhere(
+        (t) => t.id == ref.read(selectedSpeciesProvider),
+        orElse: () => trees.isNotEmpty
+            ? trees.first
+            : const TreeSpecies(
+                id: 'oak',
+                name: '橡树',
+                price: 0,
+                unlockedByDefault: true,
+                description: '',
+                milestoneMinutes: 90,
+              ),
+      );
+      ref.read(timerServiceProvider).setMilestoneMinutes(species.milestoneMinutes);
+    } else {
+      ref.read(timerServiceProvider).setMilestoneMinutes(0);
+    }
+    ref.read(timerServiceProvider).startTimer(duration, _selectedMode, isBreak: false);
+    ref.read(appMonitorProvider).start(null); // sessionId 在完成后更新
   }
 
   Future<void> _confirmAbandon(BuildContext context) async {
@@ -305,6 +341,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
 
     if (ok == true) {
       ref.read(timerServiceProvider).abandonTimer();
+      unawaited(ref.read(appMonitorProvider).stop());
     }
   }
 
@@ -349,14 +386,12 @@ class _ModeToggle extends StatelessWidget {
 
 class _CompletedPanel extends StatelessWidget {
   const _CompletedPanel({
-    required this.coinsEarned,
     required this.isPomodoro,
     required this.onReset,
     required this.breakMinutes,
     this.onStartBreak,
   });
 
-  final int coinsEarned;
   final bool isPomodoro;
   final int breakMinutes;
   final VoidCallback onReset;
@@ -371,7 +406,7 @@ class _CompletedPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '完成！获得 $coinsEarned 金币',
+              '专注完成，树种下了',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium,
             ),
@@ -395,12 +430,8 @@ class _CompletedPanel extends StatelessWidget {
 }
 
 class _FailedPanel extends StatelessWidget {
-  const _FailedPanel({
-    required this.lostCoins,
-    required this.onReset,
-  });
+  const _FailedPanel({required this.onReset});
 
-  final int lostCoins;
   final VoidCallback onReset;
 
   @override
@@ -416,12 +447,6 @@ class _FailedPanel extends StatelessWidget {
               '专注失败，树枯萎了',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '未获得金币（损失潜在 $lostCoins 金币）',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 8),
             OutlinedButton(
@@ -487,4 +512,22 @@ class _TagSelector extends ConsumerWidget {
       ],
     );
   }
+}
+
+// ─── 土壤线 ───────────────────────────────────────────────────────────────────
+
+class _SoilLinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF5D4037).withOpacity(0.45)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    final y = size.height * 0.5;
+    canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+  }
+
+  @override
+  bool shouldRepaint(_SoilLinePainter old) => false;
 }

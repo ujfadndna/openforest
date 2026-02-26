@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:local_notifier/local_notifier.dart';
 
-import '../../core/coin_service.dart';
+import '../../core/app_monitor.dart';
 import '../../core/timer_service.dart';
 import '../../data/database.dart';
 import '../../data/models/tag_model.dart';
+import '../../data/repositories/app_usage_repository.dart';
 import '../../data/repositories/coin_repository.dart';
 import '../../data/repositories/session_repository.dart';
 import '../../data/repositories/tag_repository.dart';
@@ -14,7 +16,6 @@ import '../settings/settings_screen.dart';
 /// 数据库单例 Provider
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase.instance;
-  // App 生命周期结束时关闭数据库（忽略 Future）
   ref.onDispose(() => unawaited(db.close()));
   return db;
 });
@@ -31,9 +32,18 @@ final tagRepositoryProvider = Provider<TagRepository>((ref) {
   return repo;
 });
 
+final appUsageRepositoryProvider = Provider<AppUsageRepository>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return AppUsageRepository(db);
+});
+
+final appMonitorProvider = Provider<AppMonitor>((ref) {
+  final repo = ref.watch(appUsageRepositoryProvider);
+  return AppMonitor(repo);
+});
+
 final tagsStreamProvider = StreamProvider<List<TagModel>>((ref) async* {
   final repo = ref.watch(tagRepositoryProvider);
-  // 先推送一次当前值
   yield await repo.getTags();
   yield* repo.watchTags();
 });
@@ -45,64 +55,41 @@ final coinRepositoryProvider = Provider<CoinRepository>((ref) {
   return repo;
 });
 
-final coinServiceProvider = Provider<CoinService>((ref) {
-  final repo = ref.watch(coinRepositoryProvider);
-  return CoinService(repo);
-});
-
-/// 监听总金币（用于 UI 顶部展示）
-final totalCoinsProvider = StreamProvider<int>((ref) {
-  return ref.watch(coinServiceProvider).watchTotalCoins();
-});
-
-/// 监听总专注分钟（设置/统计可用）
-final totalFocusMinutesProvider = StreamProvider<int>((ref) {
-  return ref.watch(coinServiceProvider).watchTotalFocusMinutes();
-});
-
-/// 解锁树集合（商店 UI 使用）
-final unlockedTreeIdsProvider = StreamProvider<Set<String>>((ref) {
-  return ref.watch(coinRepositoryProvider).watchUnlockedTreeIds();
-});
+/// 当前选中的树种（商店选择，计时器使用）
+final selectedSpeciesProvider = StateProvider<String>((ref) => 'oak');
 
 /// 计时器 Service Provider（ChangeNotifier）
 final timerServiceProvider = ChangeNotifierProvider<TimerService>((ref) {
   final timer = TimerService();
-
-  final coinService = ref.read(coinServiceProvider);
   final sessionRepo = ref.read(sessionRepositoryProvider);
+  final appMonitor = ref.read(appMonitorProvider);
 
   timer.onComplete = (coinsEarned) async {
-    // 番茄钟休息阶段不计入专注记录
     if (timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak) return;
+
+    await appMonitor.stop();
 
     final start = timer.startTime ?? DateTime.now();
     final end = timer.endTime ?? DateTime.now();
     final durationMinutes = timer.targetDuration.inMinutes;
 
-    await sessionRepo.addSession(
+    final sessionId = await sessionRepo.addSession(
       startTime: start,
       endTime: end,
       durationMinutes: durationMinutes,
       completed: true,
-      coinsEarned: coinsEarned,
-      treeSpecies: 'oak',
+      coinsEarned: 0,
+      treeSpecies: timer.currentSpecies,
       tag: timer.currentTag?.name,
     );
 
-    // 只有完成才累加专注分钟与金币
-    await coinService.addFocusReward(
-      coinsEarned: coinsEarned,
-      focusMinutes: durationMinutes,
-    );
-
-    // 主动刷新，确保 Stream 立即推送最新金币
-    await ref.read(coinRepositoryProvider).refreshAll();
+    appMonitor.updateSessionId(sessionId);
   };
 
   timer.onFailed = () async {
-    // 番茄钟休息阶段失败不记入专注记录
     if (timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak) return;
+
+    await appMonitor.stop();
 
     final start = timer.startTime ?? DateTime.now();
     final end = timer.endTime ?? DateTime.now();
@@ -114,16 +101,47 @@ final timerServiceProvider = ChangeNotifierProvider<TimerService>((ref) {
       durationMinutes: durationMinutes,
       completed: false,
       coinsEarned: 0,
-      treeSpecies: 'oak',
+      treeSpecies: timer.currentSpecies,
       tag: timer.currentTag?.name,
     );
   };
 
-  // 提前触发一次 refresh（确保 StreamProvider 初始有值）
-  unawaited(ref.read(coinRepositoryProvider).refreshAll());
+  timer.onMilestoneReached = () async {
+    final now = DateTime.now();
+    final milestoneMs = timer.milestoneMinutes * 60 * 1000;
+    final start = now.subtract(Duration(milliseconds: milestoneMs));
 
-  // 读取设置，确保 SharedPreferences 初始化（懒加载）
+    await sessionRepo.addSession(
+      startTime: start,
+      endTime: now,
+      durationMinutes: timer.milestoneMinutes,
+      completed: true,
+      coinsEarned: 0,
+      treeSpecies: timer.currentSpecies,
+      tag: timer.currentTag?.name,
+    );
+
+    // 仅在设置开启时发送通知
+    final settings = ref.read(settingsControllerProvider);
+    if (settings.treeNotification) {
+      final notification = LocalNotification(
+        title: 'OpenForest',
+        body: '一棵${_speciesName(timer.currentSpecies)}种下了，继续专注吧',
+      );
+      await notification.show();
+    }
+  };
+
   unawaited(ref.read(settingsControllerProvider.notifier).ensureLoaded());
 
   return timer;
 });
+
+String _speciesName(String id) => switch (id) {
+  'oak' => '橡树',
+  'pine' => '松树',
+  'cherry' => '樱花树',
+  'bamboo' => '竹子',
+  'maple' => '枫树',
+  _ => '树',
+};

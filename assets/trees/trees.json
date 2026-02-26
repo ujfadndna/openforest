@@ -1,38 +1,42 @@
 [
   {
-    "id": "oak",
-    "name": "橡树",
+    "id": "bamboo",
+    "name": "竹子",
     "price": 0,
     "unlocked": true,
-    "description": "坚韧的橡树，专注的象征"
-  },
-  {
-    "id": "pine",
-    "name": "松树",
-    "price": 50,
-    "unlocked": false,
-    "description": "挺拔的松树，永不放弃"
+    "description": "破土而出，一夜之间便能触碰天空。",
+    "milestone_minutes": 45
   },
   {
     "id": "cherry",
     "name": "樱花树",
-    "price": 100,
-    "unlocked": false,
-    "description": "美丽的樱花，短暂而珍贵"
-  },
-  {
-    "id": "bamboo",
-    "name": "竹子",
-    "price": 80,
-    "unlocked": false,
-    "description": "坚韧的竹子，节节高升"
+    "price": 0,
+    "unlocked": true,
+    "description": "等待是它的修行，盛开是它的回答。",
+    "milestone_minutes": 60
   },
   {
     "id": "maple",
     "name": "枫树",
-    "price": 120,
-    "unlocked": false,
-    "description": "绚烂的枫树，秋日之美"
+    "price": 0,
+    "unlocked": true,
+    "description": "把时间染成红色，然后安静地落下。",
+    "milestone_minutes": 75
+  },
+  {
+    "id": "oak",
+    "name": "橡树",
+    "price": 0,
+    "unlocked": true,
+    "description": "每一粒橡果，都藏着一片森林的可能。",
+    "milestone_minutes": 90
+  },
+  {
+    "id": "pine",
+    "name": "松树",
+    "price": 0,
+    "unlocked": true,
+    "description": "雪压不弯，风吹不倒，只是静静地长。",
+    "milestone_minutes": 120
   }
 ]
-

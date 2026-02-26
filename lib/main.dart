@@ -1,19 +1,22 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:local_notifier/local_notifier.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'features/settings/settings_screen.dart';
 import 'features/shop/shop_screen.dart';
 import 'features/stats/stats_screen.dart';
 import 'features/timer/timer_screen.dart';
+import 'features/allowlist/allowlist_screen.dart';
+import 'features/forest/forest_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 仅在桌面端初始化 window_manager，移动端/网页端跳过。
   if (_isDesktop()) {
     await windowManager.ensureInitialized();
+    await localNotifier.setup(appName: 'OpenForest');
 
     const windowOptions = WindowOptions(
       size: Size(1100, 700),
@@ -80,7 +83,9 @@ class _HomeShellState extends State<HomeShell> {
 
   final _pages = const <Widget>[
     TimerScreen(),
+    ForestScreen(),
     StatsScreen(),
+    AllowlistScreen(),
     ShopScreen(),
     SettingsScreen(),
   ];
@@ -106,9 +111,19 @@ class _HomeShellState extends State<HomeShell> {
                     label: Text('计时器'),
                   ),
                   NavigationRailDestination(
+                    icon: Icon(Icons.forest_outlined),
+                    selectedIcon: Icon(Icons.forest),
+                    label: Text('森林'),
+                  ),
+                  NavigationRailDestination(
                     icon: Icon(Icons.bar_chart_outlined),
                     selectedIcon: Icon(Icons.bar_chart),
                     label: Text('统计'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.rule_outlined),
+                    selectedIcon: Icon(Icons.rule),
+                    label: Text('名单'),
                   ),
                   NavigationRailDestination(
                     icon: Icon(Icons.storefront_outlined),

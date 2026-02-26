@@ -6,6 +6,7 @@ class TreeSpecies {
     required this.price,
     required this.unlockedByDefault,
     required this.description,
+    required this.milestoneMinutes,
   });
 
   final String id;
@@ -14,6 +15,9 @@ class TreeSpecies {
   final bool unlockedByDefault;
   final String description;
 
+  /// 正计时模式下，每隔多少分钟种一棵树
+  final int milestoneMinutes;
+
   factory TreeSpecies.fromJson(Map<String, dynamic> json) {
     return TreeSpecies(
       id: (json['id'] as String?) ?? '',
@@ -21,6 +25,7 @@ class TreeSpecies {
       price: (json['price'] as num?)?.toInt() ?? 0,
       unlockedByDefault: (json['unlocked'] as bool?) ?? false,
       description: (json['description'] as String?) ?? '',
+      milestoneMinutes: (json['milestone_minutes'] as num?)?.toInt() ?? 90,
     );
   }
 
@@ -30,6 +35,6 @@ class TreeSpecies {
         'price': price,
         'unlocked': unlockedByDefault,
         'description': description,
+        'milestone_minutes': milestoneMinutes,
       };
 }
-

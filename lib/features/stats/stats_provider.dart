@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/session.dart';
 import '../timer/timer_provider.dart';
-
 enum StatsPeriod { today, week, month }
 
 /// 统计数据（用于图表 + 底部卡片）
@@ -103,7 +102,47 @@ int _daysInMonth(int year, int month) {
   return firstDayNextMonth.difference(firstDayThisMonth).inDays;
 }
 
-// ─── 标签统计 ──────────────────────────────────────────────────────────────────
+// ─── 应用使用统计 ──────────────────────────────────────────────────────────────
+
+class AppUsageStat {
+  const AppUsageStat({required this.appName, required this.totalSeconds});
+  final String appName;
+  final int totalSeconds;
+}
+
+final appUsageStatsProvider =
+    FutureProvider.family<List<AppUsageStat>, StatsPeriod>((ref, period) async {
+  ref.watch(timerServiceProvider);
+  final repo = ref.read(appUsageRepositoryProvider);
+
+  final now = DateTime.now();
+  final (start, end) = switch (period) {
+    StatsPeriod.today => (_startOfDay(now), _startOfDay(now).add(const Duration(days: 1))),
+    StatsPeriod.week => () {
+        final s = _startOfWeek(now);
+        return (s, s.add(const Duration(days: 7)));
+      }(),
+    StatsPeriod.month => () {
+        final s = DateTime(now.year, now.month, 1);
+        final e = now.month == 12
+            ? DateTime(now.year + 1, 1, 1)
+            : DateTime(now.year, now.month + 1, 1);
+        return (s, e);
+      }(),
+  };
+
+  final usages = await repo.getUsagesBetween(start, end);
+
+  final map = <String, int>{};
+  for (final u in usages) {
+    map[u.appName] = (map[u.appName] ?? 0) + u.durationSeconds;
+  }
+
+  return map.entries
+      .map((e) => AppUsageStat(appName: e.key, totalSeconds: e.value))
+      .toList()
+    ..sort((a, b) => b.totalSeconds.compareTo(a.totalSeconds));
+});
 
 class TagStat {
   const TagStat({required this.tagName, required this.totalMinutes});

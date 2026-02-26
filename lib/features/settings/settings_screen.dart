@@ -18,15 +18,22 @@ class SettingsState {
     required this.focusWarningSeconds,
     required this.themeMode,
     required this.loaded,
+    this.focusWhitelist = const [],
+    this.focusBlacklist = const [],
+    this.treeNotification = true,
   });
 
-  final int minFocusMinutes; // 10-30
-  final int maxFocusMinutes; // 60-180
-  final int pomodoroWorkMinutes; // 默认 25
-  final int pomodoroBreakMinutes; // 默认 5
-  final int focusWarningSeconds; // 3-30
-  final ThemeMode themeMode; // 浅色/深色/跟随系统
-  final bool loaded; // 是否已从本地加载
+  final int minFocusMinutes;
+  final int maxFocusMinutes;
+  final int pomodoroWorkMinutes;
+  final int pomodoroBreakMinutes;
+  final int focusWarningSeconds;
+  final ThemeMode themeMode;
+  final bool loaded;
+  final List<String> focusWhitelist;
+  final List<String> focusBlacklist;
+  /// 种好树后是否弹出 Windows 通知
+  final bool treeNotification;
 
   SettingsState copyWith({
     int? minFocusMinutes,
@@ -36,6 +43,9 @@ class SettingsState {
     int? focusWarningSeconds,
     ThemeMode? themeMode,
     bool? loaded,
+    List<String>? focusWhitelist,
+    List<String>? focusBlacklist,
+    bool? treeNotification,
   }) {
     return SettingsState(
       minFocusMinutes: minFocusMinutes ?? this.minFocusMinutes,
@@ -45,6 +55,9 @@ class SettingsState {
       focusWarningSeconds: focusWarningSeconds ?? this.focusWarningSeconds,
       themeMode: themeMode ?? this.themeMode,
       loaded: loaded ?? this.loaded,
+      focusWhitelist: focusWhitelist ?? this.focusWhitelist,
+      focusBlacklist: focusBlacklist ?? this.focusBlacklist,
+      treeNotification: treeNotification ?? this.treeNotification,
     );
   }
 }
@@ -76,6 +89,9 @@ class SettingsController extends StateNotifier<SettingsState> {
   static const _kPomodoroBreak = 'pomodoro_break_minutes';
   static const _kFocusWarn = 'focus_warning_seconds';
   static const _kThemeMode = 'theme_mode';
+  static const _kWhitelist = 'focus_whitelist';
+  static const _kBlacklist = 'focus_blacklist';
+  static const _kTreeNotification = 'tree_notification';
 
   Future<void> ensureLoaded() async {
     if (state.loaded) return;
@@ -110,6 +126,9 @@ class SettingsController extends StateNotifier<SettingsState> {
       pomodoroBreakMinutes: fixed.pomodoroBreakMinutes,
       focusWarningSeconds: fixed.focusWarningSeconds,
       themeMode: themeMode,
+      focusWhitelist: _prefs?.getStringList(_kWhitelist) ?? [],
+      focusBlacklist: _prefs?.getStringList(_kBlacklist) ?? [],
+      treeNotification: _prefs?.getBool(_kTreeNotification) ?? true,
       loaded: true,
     );
   }
@@ -166,6 +185,46 @@ class SettingsController extends StateNotifier<SettingsState> {
       _ => 0,
     };
     await _prefs?.setInt(_kThemeMode, idx);
+  }
+
+  Future<void> setTreeNotification(bool value) async {
+    await ensureLoaded();
+    state = state.copyWith(treeNotification: value);
+    await _prefs?.setBool(_kTreeNotification, value);
+  }
+
+  Future<void> addToWhitelist(String appName) async {
+    await ensureLoaded();
+    final name = appName.trim().toLowerCase();
+    if (name.isEmpty) return;
+    if (state.focusWhitelist.contains(name)) return;
+    final updated = [...state.focusWhitelist, name];
+    state = state.copyWith(focusWhitelist: updated);
+    await _prefs?.setStringList(_kWhitelist, updated);
+  }
+
+  Future<void> removeFromWhitelist(String appName) async {
+    await ensureLoaded();
+    final updated = state.focusWhitelist.where((e) => e != appName).toList();
+    state = state.copyWith(focusWhitelist: updated);
+    await _prefs?.setStringList(_kWhitelist, updated);
+  }
+
+  Future<void> addToBlacklist(String appName) async {
+    await ensureLoaded();
+    final name = appName.trim().toLowerCase();
+    if (name.isEmpty) return;
+    if (state.focusBlacklist.contains(name)) return;
+    final updated = [...state.focusBlacklist, name];
+    state = state.copyWith(focusBlacklist: updated);
+    await _prefs?.setStringList(_kBlacklist, updated);
+  }
+
+  Future<void> removeFromBlacklist(String appName) async {
+    await ensureLoaded();
+    final updated = state.focusBlacklist.where((e) => e != appName).toList();
+    state = state.copyWith(focusBlacklist: updated);
+    await _prefs?.setStringList(_kBlacklist, updated);
   }
 
   _FixedRanges _fixRanges({
@@ -289,6 +348,18 @@ class SettingsScreen extends ConsumerWidget {
                         unawaited(controller.setThemeMode(set.first));
                       },
                       showSelectedIcon: false,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _SectionCard(
+                    title: '通知',
+                    child: SwitchListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('种好树后弹出系统通知'),
+                      value: settings.treeNotification,
+                      onChanged: (v) =>
+                          unawaited(controller.setTreeNotification(v)),
                     ),
                   ),
                   const SizedBox(height: 12),

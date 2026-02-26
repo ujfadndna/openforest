@@ -10,72 +10,42 @@ class ShopScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final coinsAsync = ref.watch(totalCoinsProvider);
     final treesAsync = ref.watch(treeSpeciesListProvider);
-    final unlockedAsync = ref.watch(unlockedTreeIdsProvider);
-
-    final coins = coinsAsync.asData?.value ?? 0;
-    final unlocked = unlockedAsync.asData?.value ?? const <String>{};
+    final selectedId = ref.watch(selectedSpeciesProvider);
 
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Row(
-            children: [
-              Text(
-                '商店',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const Spacer(),
-              const Icon(Icons.monetization_on_outlined),
-              const SizedBox(width: 6),
-              Text('金币：$coins'),
-            ],
-          ),
+          child: Text('树种', style: Theme.of(context).textTheme.titleLarge),
         ),
         Expanded(
           child: treesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('加载树种失败：$e')),
             data: (trees) {
-              if (trees.isEmpty) {
-                return const Center(child: Text('暂无树种数据'));
-              }
-
+              if (trees.isEmpty) return const Center(child: Text('暂无树种数据'));
               return Padding(
                 padding: const EdgeInsets.all(12),
                 child: GridView.builder(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
-                    childAspectRatio: 0.86,
+                    childAspectRatio: 0.9,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
                   ),
                   itemCount: trees.length,
                   itemBuilder: (context, index) {
                     final t = trees[index];
-                    final isUnlocked = unlocked.contains(t.id) || t.unlockedByDefault;
-                    final canBuy = coins >= t.price;
                     return _TreeCard(
                       speciesId: t.id,
                       name: t.name,
                       description: t.description,
-                      price: t.price,
-                      unlocked: isUnlocked,
-                      canBuy: canBuy,
-                      onBuy: isUnlocked
-                          ? null
-                          : () async {
-                              final controller = ref.read(shopControllerProvider);
-                              final ok = await controller.buy(t);
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(ok ? '购买成功：已解锁 ${t.name}' : '金币不足，无法购买'),
-                                ),
-                              );
-                            },
+                      milestoneMinutes: t.milestoneMinutes,
+                      selected: t.id == selectedId,
+                      onTap: () => ref
+                          .read(selectedSpeciesProvider.notifier)
+                          .state = t.id,
                     );
                   },
                 ),
@@ -88,93 +58,137 @@ class ShopScreen extends ConsumerWidget {
   }
 }
 
-class _TreeCard extends StatelessWidget {
+class _TreeCard extends StatefulWidget {
   const _TreeCard({
     required this.speciesId,
     required this.name,
     required this.description,
-    required this.price,
-    required this.unlocked,
-    required this.canBuy,
-    required this.onBuy,
+    required this.milestoneMinutes,
+    required this.selected,
+    required this.onTap,
   });
 
   final String speciesId;
   final String name;
   final String description;
-  final int price;
-  final bool unlocked;
-  final bool canBuy;
-  final Future<void> Function()? onBuy;
+  final int milestoneMinutes;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_TreeCard> createState() => _TreeCardState();
+}
+
+class _TreeCardState extends State<_TreeCard> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 树预览
-            Expanded(
-              child: Center(
-                child: ColorFiltered(
-                  colorFilter: unlocked
-                      ? const ColorFilter.mode(Colors.transparent, BlendMode.dst)
-                      : const ColorFilter.matrix([
-                          0.2126, 0.7152, 0.0722, 0, 0,
-                          0.2126, 0.7152, 0.0722, 0, 0,
-                          0.2126, 0.7152, 0.0722, 0, 0,
-                          0,      0,      0,      1, 0,
-                        ]),
-                  child: AnimatedTree(
-                    progress: 0.85,
-                    state: unlocked ? TreeVisualState.completed : TreeVisualState.growing,
-                    seed: speciesId.hashCode,
-                    speciesId: speciesId,
-                  ),
-                ),
-              ),
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: widget.selected
+                  ? colorScheme.primary
+                  : Colors.transparent,
+              width: 2,
             ),
-            const SizedBox(height: 8),
-            Row(
+            color: widget.selected
+                ? colorScheme.primaryContainer.withOpacity(0.3)
+                : _hovered
+                    ? colorScheme.surfaceContainerHigh
+                    : colorScheme.surfaceContainer,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium,
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: AnimatedTree(
+                          progress: 0.85,
+                          state: TreeVisualState.completed,
+                          seed: widget.speciesId.hashCode,
+                          speciesId: widget.speciesId,
+                        ),
+                      ),
+                      if (widget.selected)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: Icon(
+                            Icons.check_circle,
+                            size: 18,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-                if (unlocked)
-                  const Icon(Icons.check_circle, color: Colors.green, size: 18)
-                else
-                  const Icon(Icons.lock_outline, size: 18),
+                const SizedBox(height: 8),
+                Text(
+                  widget.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: widget.selected ? colorScheme.primary : null,
+                      ),
+                ),
+                // hover 时展开介绍和里程碑
+                AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 150),
+                  crossFadeState: _hovered
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  firstChild: const SizedBox(height: 4),
+                  secondChild: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.timer_outlined,
+                                size: 12,
+                                color: colorScheme.outline),
+                            const SizedBox(width: 4),
+                            Text(
+                              '里程碑：${widget.milestoneMinutes} 分钟',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: colorScheme.outline),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              description,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 10),
-            if (unlocked)
-              OutlinedButton(
-                onPressed: null,
-                child: const Text('已解锁'),
-              )
-            else
-              FilledButton(
-                onPressed: canBuy ? () => onBuy?.call() : null,
-                child: Text('购买 $price'),
-              ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
-

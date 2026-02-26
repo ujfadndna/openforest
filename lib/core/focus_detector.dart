@@ -1,16 +1,18 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'app_monitor.dart';
+
 /// 窗口失焦检测（Desktop）
 ///
-/// 设计目标：
-/// - 失焦超过 warningDelay：触发“枯萎警告”（UI 可变灰 + SnackBar 提示）
-/// - 失焦超过 failureDelay：触发失败（枯萎/中断）
-///
-/// 注意：window_manager 仅在桌面端可用，本 Widget 在移动端/网页端会自动降级为“仅包裹 child”。
+/// - 失焦后检查前台应用是否在白名单，在则忽略
+/// - 不在白名单：触发 onBlurWithUnknownApp（弹出"加入白名单"提示）
+/// - 超过 warningDelay：触发枯萎警告
+/// - 超过 failureDelay：触发失败
 class FocusDetector extends StatefulWidget {
   const FocusDetector({
     super.key,
@@ -19,23 +21,23 @@ class FocusDetector extends StatefulWidget {
     required this.onWitherWarning,
     required this.onFailed,
     this.onFocusBack,
+    this.whitelist = const [],
+    this.blacklist = const [],
     this.warningDelay = const Duration(seconds: 3),
     this.failureDelay = const Duration(seconds: 10),
   });
 
   final Widget child;
-
-  /// 是否启用检测（通常仅在计时 running 时启用）
   final bool enabled;
-
-  /// 失焦超过 warningDelay 时触发
   final VoidCallback onWitherWarning;
-
-  /// 失焦超过 failureDelay 时触发
   final VoidCallback onFailed;
-
-  /// 重新聚焦时触发（用于取消枯萎状态）
   final VoidCallback? onFocusBack;
+
+  /// 允许切换的进程名列表（小写）— 不触发失焦计时
+  final List<String> whitelist;
+
+  /// 黑名单进程名列表（小写）— 静默忽略，不触发任何回调
+  final List<String> blacklist;
 
   final Duration warningDelay;
   final Duration failureDelay;
@@ -52,8 +54,7 @@ class _FocusDetectorState extends State<FocusDetector> with WindowListener {
   bool get _isDesktop {
     if (kIsWeb) return false;
     return switch (defaultTargetPlatform) {
-      TargetPlatform.windows || TargetPlatform.linux || TargetPlatform.macOS =>
-        true,
+      TargetPlatform.windows || TargetPlatform.linux || TargetPlatform.macOS => true,
       _ => false,
     };
   }
@@ -61,16 +62,12 @@ class _FocusDetectorState extends State<FocusDetector> with WindowListener {
   @override
   void initState() {
     super.initState();
-    if (_isDesktop) {
-      windowManager.addListener(this);
-    }
+    if (_isDesktop) windowManager.addListener(this);
   }
 
   @override
   void didUpdateWidget(covariant FocusDetector oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    // 如果从 enabled -> disabled，清理所有定时器并重置状态
     if (oldWidget.enabled && !widget.enabled) {
       _clearTimers(resetWarned: true);
       widget.onFocusBack?.call();
@@ -79,32 +76,35 @@ class _FocusDetectorState extends State<FocusDetector> with WindowListener {
 
   @override
   void dispose() {
-    if (_isDesktop) {
-      windowManager.removeListener(this);
-    }
+    if (_isDesktop) windowManager.removeListener(this);
     _clearTimers(resetWarned: true);
     super.dispose();
   }
 
   @override
   void onWindowBlur() {
-    if (!mounted) return;
-    if (!widget.enabled) return;
+    if (!mounted || !widget.enabled) return;
+
+    // 检查前台应用是否在白名单或黑名单
+    if (Platform.isWindows) {
+      final app = getForegroundAppName()?.toLowerCase();
+      if (app != null && app.isNotEmpty) {
+        if (widget.whitelist.contains(app) || widget.blacklist.contains(app)) {
+          return;
+        }
+      }
+    }
 
     _clearTimers(resetWarned: false);
 
-    // warningDelay：提示枯萎
     _warningTimer = Timer(widget.warningDelay, () {
-      if (!mounted) return;
-      if (!widget.enabled) return;
+      if (!mounted || !widget.enabled) return;
       _warned = true;
       widget.onWitherWarning();
     });
 
-    // failureDelay：直接失败
     _failureTimer = Timer(widget.failureDelay, () {
-      if (!mounted) return;
-      if (!widget.enabled) return;
+      if (!mounted || !widget.enabled) return;
       widget.onFailed();
     });
   }
@@ -116,14 +116,9 @@ class _FocusDetectorState extends State<FocusDetector> with WindowListener {
       _clearTimers(resetWarned: true);
       return;
     }
-
     final hadWarned = _warned;
     _clearTimers(resetWarned: true);
-
-    // 重新聚焦后：如果之前已触发警告，通知 UI 恢复颜色。
-    if (hadWarned) {
-      widget.onFocusBack?.call();
-    }
+    if (hadWarned) widget.onFocusBack?.call();
   }
 
   void _clearTimers({required bool resetWarned}) {
@@ -137,4 +132,3 @@ class _FocusDetectorState extends State<FocusDetector> with WindowListener {
   @override
   Widget build(BuildContext context) => widget.child;
 }
-

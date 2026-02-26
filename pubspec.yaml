@@ -19,6 +19,7 @@ dependencies:
   window_manager: ^0.3.0
   fl_chart: ^0.65.0
   intl: ^0.18.0
+  local_notifier: ^0.1.6
 
 dev_dependencies:
   flutter_test:

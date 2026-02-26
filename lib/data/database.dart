@@ -67,6 +67,16 @@ CREATE TABLE IF NOT EXISTS tags (
   color INTEGER NOT NULL UNIQUE
 );
 ''');
+    await db.runCustom('''
+CREATE TABLE IF NOT EXISTS app_usages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER,
+  app_name TEXT NOT NULL,
+  window_title TEXT,
+  duration_seconds INTEGER NOT NULL,
+  recorded_at INTEGER NOT NULL
+);
+''');
     await db.runInsert(
       'INSERT OR IGNORE INTO user_coins (id, total_coins, total_focus_minutes) VALUES (1, 0, 0);',
       const [],

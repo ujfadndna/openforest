@@ -7,7 +7,7 @@ class SessionRepository {
 
   final AppDatabase _db;
 
-  Future<void> addSession({
+  Future<int> addSession({
     required DateTime startTime,
     required DateTime endTime,
     required int durationMinutes,
@@ -16,7 +16,7 @@ class SessionRepository {
     required String treeSpecies,
     String? tag,
   }) async {
-    await _db.insert(
+    return _db.insert(
       '''
 INSERT INTO focus_sessions (
   start_time, end_time, duration_minutes, completed, coins_earned, tree_species, tag
@@ -50,6 +50,19 @@ ORDER BY start_time ASC;
       [from.millisecondsSinceEpoch, to.millisecondsSinceEpoch],
     );
 
+    return rows.map(_mapRowToModel).toList(growable: false);
+  }
+
+  /// 查询所有已完成的专注记录（按开始时间排序）
+  Future<List<FocusSessionModel>> getAllCompleted() async {
+    final rows = await _db.select(
+      '''
+SELECT id, start_time, end_time, duration_minutes, completed, coins_earned, tree_species, tag
+FROM focus_sessions
+WHERE completed = 1
+ORDER BY start_time ASC;
+''',
+    );
     return rows.map(_mapRowToModel).toList(growable: false);
   }
 
