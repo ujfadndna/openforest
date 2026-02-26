@@ -1,0 +1,38 @@
+[
+  {
+    "id": "oak",
+    "name": "橡树",
+    "price": 0,
+    "unlocked": true,
+    "description": "坚韧的橡树，专注的象征"
+  },
+  {
+    "id": "pine",
+    "name": "松树",
+    "price": 50,
+    "unlocked": false,
+    "description": "挺拔的松树，永不放弃"
+  },
+  {
+    "id": "cherry",
+    "name": "樱花树",
+    "price": 100,
+    "unlocked": false,
+    "description": "美丽的樱花，短暂而珍贵"
+  },
+  {
+    "id": "bamboo",
+    "name": "竹子",
+    "price": 80,
+    "unlocked": false,
+    "description": "坚韧的竹子，节节高升"
+  },
+  {
+    "id": "maple",
+    "name": "枫树",
+    "price": 120,
+    "unlocked": false,
+    "description": "绚烂的枫树，秋日之美"
+  }
+]
+
