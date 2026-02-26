@@ -5,16 +5,30 @@
 ![Flutter](https://img.shields.io/badge/Flutter-3.x-blue?logo=flutter)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
+![Version](https://img.shields.io/badge/version-1.1.0-orange)
 
 ## 功能
 
-- **三种计时模式**：正计时 / 倒计时 / 番茄钟
-- **失焦检测**（桌面端）：离开窗口超时则树枯萎
-- **树种系统**：橡树、松树、樱花、竹子、枫树，各有独特外形和动效
-- **标签系统**：自定义颜色标签，按标签统计专注时长
-- **金币商店**：完成专注获得金币，解锁新树种
-- **统计页**：今日 / 本周 / 本月 / 按标签，图表展示
+- **三种计时模式**：倒计时 / 正计时 / 番茄钟
+- **失焦检测**（桌面端）：切换到黑名单应用才触发枯萎，暂停和休息阶段不触发
+- **树种系统**：竹子、樱花、枫树、橡树、松树，各有里程碑时长（45～120 分钟）
+- **正计时里程碑**：按树种里程碑自动种树，每完成一个里程碑弹出 Windows 通知
+- **森林页**：所有历史完成的树汇聚成森林，进入时依次生长动效
+- **标签系统**：自定义颜色标签，专注时选择，统计页按标签分类显示时长
+- **金币商店**：完成专注获得金币（1 金币/分钟），解锁新树种；hover 显示文艺介绍和里程碑时长
+- **统计页**：今日 / 本周 / 本月 / 按标签 / 应用使用，图表展示
+- **应用使用追踪**：记录专注期间切换过的应用及时长
 - **主题**：跟随系统 / 浅色 / 深色
+
+## 树种
+
+| 树种 | 里程碑 | 介绍 |
+|------|--------|------|
+| 竹子 | 45 分钟 | 破土而出，一夜之间便能触碰天空 |
+| 樱花树 | 60 分钟 | 等待是它的修行，盛开是它的回答 |
+| 枫树 | 75 分钟 | 把时间染成红色，然后安静地落下 |
+| 橡树 | 90 分钟 | 每一粒橡果，都藏着一片森林的可能 |
+| 松树 | 120 分钟 | 雪压不弯，风吹不倒，只是静静地长 |
 
 ## 截图
 
@@ -30,7 +44,7 @@
 **运行**
 
 ```bash
-git clone https://github.com/your-username/openforest.git
+git clone https://github.com/ujfadndna/openforest.git
 cd openforest
 flutter pub get
 flutter run -d windows   # 或 macos / linux
@@ -51,15 +65,18 @@ lib/
 ├── core/
 │   ├── timer_service.dart      # 计时核心逻辑
 │   ├── coin_service.dart       # 金币计算
-│   └── focus_detector.dart     # 失焦检测（桌面端）
+│   ├── focus_detector.dart     # 失焦检测（桌面端）
+│   └── app_monitor.dart        # 应用使用追踪
 ├── data/
 │   ├── database.dart           # SQLite 初始化
 │   ├── models/                 # 数据模型
 │   └── repositories/           # 数据访问层
 ├── features/
 │   ├── timer/                  # 计时器页面
+│   ├── forest/                 # 森林页面
 │   ├── stats/                  # 统计页面
 │   ├── shop/                   # 商店页面
+│   ├── allowlist/              # 黑名单管理
 │   └── settings/               # 设置页面
 └── main.dart
 assets/
@@ -75,6 +92,7 @@ assets/
 | [drift](https://pub.dev/packages/drift) | SQLite ORM |
 | [fl_chart](https://pub.dev/packages/fl_chart) | 统计图表 |
 | [window_manager](https://pub.dev/packages/window_manager) | 桌面窗口管理 |
+| [local_notifier](https://pub.dev/packages/local_notifier) | 系统通知 |
 | [shared_preferences](https://pub.dev/packages/shared_preferences) | 设置持久化 |
 
 ## 添加树种
@@ -87,6 +105,7 @@ assets/
   "name": "柳树",
   "price": 150,
   "unlocked": false,
+  "milestoneMinutes": 60,
   "description": "垂柳依依，随风摇曳"
 }
 ```
