@@ -8,6 +8,10 @@ import '../../data/models/tag_model.dart';
 import '../../data/models/tree_species.dart';
 import '../settings/settings_screen.dart';
 import '../shop/shop_provider.dart';
+import '../weather/weather_overlay.dart';
+import '../weather/weather_provider.dart';
+import '../weather/weather_selector.dart';
+import '../weather/weather_type.dart';
 import 'timer_provider.dart';
 import 'tree_painter.dart';
 
@@ -48,6 +52,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     final settings = ref.watch(settingsControllerProvider);
     final selectedSpecies = ref.watch(selectedSpeciesProvider);
     final accumulatedSeconds = ref.watch(accumulatedSecondsProvider);
+    final weather = ref.watch(effectiveWeatherProvider);
 
     final isRunning = timer.state == TimerState.running;
     final isPaused = timer.state == TimerState.paused;
@@ -117,24 +122,19 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                     child: Center(
                       child: AspectRatio(
                         aspectRatio: 1,
-                        child: Stack(
-                          children: [
-                            AnimatedTree(
-                              progress: isIdle ? 0.15 : treeProgress,
-                              state: treeState,
-                              seed: 1,
-                              speciesId: selectedSpecies,
-                            ),
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              child: CustomPaint(
-                                size: const Size(double.infinity, 12),
-                                painter: _SoilLinePainter(),
+                        child: WeatherOverlay(
+                          weather: weather,
+                          child: Stack(
+                            children: [
+                              AnimatedTree(
+                                progress: isIdle ? 0.15 : treeProgress,
+                                state: treeState,
+                                seed: 1,
+                                speciesId: selectedSpecies,
+                                windFactor: weather.windFactor,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -161,7 +161,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
             ),
 
             const SizedBox(width: 24),
-            const VerticalDivider(),
+            const SizedBox(width: 1),
             const SizedBox(width: 24),
 
             // 右栏：计时控制
@@ -171,6 +171,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: const WeatherSelector(),
+                  ),
+                  const SizedBox(height: 4),
                   _ModeToggle(
                     mode: _selectedMode,
                     enabled: isIdle,
@@ -628,20 +633,3 @@ class _TagSelector extends ConsumerWidget {
   }
 }
 
-// ─── 土壤线 ───────────────────────────────────────────────────────────────────
-
-class _SoilLinePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF5D4037).withOpacity(0.45)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    final y = size.height * 0.5;
-    canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-  }
-
-  @override
-  bool shouldRepaint(_SoilLinePainter old) => false;
-}

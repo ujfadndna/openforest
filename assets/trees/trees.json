@@ -38,5 +38,45 @@
     "unlocked": true,
     "description": "雪压不弯，风吹不倒，只是静静地长。",
     "milestone_minutes": 120
+  },
+  {
+    "id": "poplar",
+    "name": "白杨",
+    "price": 0,
+    "unlocked": true,
+    "description": "笔直向上，哪怕风来，叶子也只是抖动，从不弯腰。",
+    "milestone_minutes": 30
+  },
+  {
+    "id": "willow",
+    "name": "柳树",
+    "price": 0,
+    "unlocked": true,
+    "description": "把柔软当成力量，随风而动，却始终扎根。",
+    "milestone_minutes": 105
+  },
+  {
+    "id": "ginkgo",
+    "name": "银杏",
+    "price": 0,
+    "unlocked": true,
+    "description": "亿万年了，还是头一次见你这么认真。",
+    "milestone_minutes": 150
+  },
+  {
+    "id": "plum",
+    "name": "梅花",
+    "price": 0,
+    "unlocked": true,
+    "description": "不等春来，先把香气借给冬天。",
+    "milestone_minutes": 180
+  },
+  {
+    "id": "banyan",
+    "name": "榕树",
+    "price": 0,
+    "unlocked": true,
+    "description": "一棵树，长成了一片森林。",
+    "milestone_minutes": 240
   }
 ]

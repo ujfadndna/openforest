@@ -136,15 +136,7 @@ class _BarChart extends StatelessWidget {
         maxY: safeMaxY,
         minY: 0,
         barGroups: groups,
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: safeMaxY / 4,
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: Theme.of(context).dividerColor.withOpacity(0.3),
-            strokeWidth: 1,
-          ),
-        ),
+        gridData: const FlGridData(show: false),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -248,13 +240,11 @@ class _SummaryCards extends StatelessWidget {
           child: Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  const Icon(Icons.schedule),
-                  const SizedBox(height: 6),
-                  Text('总专注时长', style: Theme.of(context).textTheme.labelMedium),
-                  const SizedBox(height: 4),
-                  Text(timeText, style: Theme.of(context).textTheme.titleMedium),
+                child: Column(
+                  children: [
+                    Text('总专注时长', style: Theme.of(context).textTheme.labelMedium),
+                    const SizedBox(height: 4),
+                    Text(timeText, style: Theme.of(context).textTheme.titleMedium),
                 ],
               ),
             ),
@@ -265,13 +255,11 @@ class _SummaryCards extends StatelessWidget {
           child: Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  const Icon(Icons.check_circle_outline),
-                  const SizedBox(height: 6),
-                  Text('完成次数', style: Theme.of(context).textTheme.labelMedium),
-                  const SizedBox(height: 4),
-                  Text('$completedCount 次', style: Theme.of(context).textTheme.titleMedium),
+                child: Column(
+                  children: [
+                    Text('完成次数', style: Theme.of(context).textTheme.labelMedium),
+                    const SizedBox(height: 4),
+                    Text('$completedCount 次', style: Theme.of(context).textTheme.titleMedium),
                 ],
               ),
             ),
@@ -282,13 +270,11 @@ class _SummaryCards extends StatelessWidget {
           child: Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  const Icon(Icons.monetization_on_outlined),
-                  const SizedBox(height: 6),
-                  Text('获得金币', style: Theme.of(context).textTheme.labelMedium),
-                  const SizedBox(height: 4),
-                  Text('$totalCoins', style: Theme.of(context).textTheme.titleMedium),
+                child: Column(
+                  children: [
+                    Text('获得金币', style: Theme.of(context).textTheme.labelMedium),
+                    const SizedBox(height: 4),
+                    Text('$totalCoins', style: Theme.of(context).textTheme.titleMedium),
                 ],
               ),
             ),
