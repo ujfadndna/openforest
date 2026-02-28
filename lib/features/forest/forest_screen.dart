@@ -117,6 +117,10 @@ class _ForestViewState extends State<_ForestView>
   late List<int> _staticSortedIndices; // 无摇摆树（70%），仅在视口变化时重建
   late List<int> _swaySortedIndices; // 摇摆树（30%），每帧重建
 
+  // 环境粒子
+  late AnimationController _ambientCtrl;
+  late List<_AmbientParticle> _ambientParticles;
+
   void _onTransformChanged() {
     if (_hoveredIndex != null) {
       setState(() => _hoveredIndex = null);
@@ -175,6 +179,20 @@ class _ForestViewState extends State<_ForestView>
       ..sort((a, b) => _placements[a].y.compareTo(_placements[b].y));
     _staticSortedIndices = _sortedIndices.where((i) => !_isSway[i]).toList();
     _swaySortedIndices = _sortedIndices.where((i) => _isSway[i]).toList();
+
+    // 环境粒子
+    final arng = math.Random(777);
+    _ambientParticles = List.generate(18, (_) => _AmbientParticle(
+      x: arng.nextDouble(),
+      y: arng.nextDouble(),
+      speed: 0.08 + arng.nextDouble() * 0.12,
+      size: 1.2 + arng.nextDouble() * 1.4,
+      phase: arng.nextDouble(),
+    ));
+    _ambientCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 14),
+    )..repeat();
   }
 
   // 透视行 y 坐标公式（统一出口，避免各处重复计算）
@@ -250,6 +268,7 @@ class _ForestViewState extends State<_ForestView>
   @override
   void dispose() {
     _globalSwayCtrl.dispose();
+    _ambientCtrl.dispose();
     _transformCtrl.dispose();
     super.dispose();
   }
@@ -258,9 +277,9 @@ class _ForestViewState extends State<_ForestView>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final skyColors = isDark
-        ? const [Color(0xFF1E1C1A), Color(0xFF0C0A09)]
-        : const [Color(0xFFF7F2EA), Color(0xFFCFAF87)];
-    const skyStops = [0.0, 1.0];
+        ? const [Color(0xFF0D1B2A), Color(0xFF162535), Color(0xFF2C1A0E), Color(0xFF120905)]
+        : const [Color(0xFFD6EAF8), Color(0xFFFDEBD0), Color(0xFFD4A574), Color(0xFF8B5E3C)];
+    const skyStops = [0.0, 0.38, 0.72, 1.0];
 
     const virtualW = 24.0 * _kPixelsPerHour;
     const canvasW = virtualW + _kCanvasLeftPadding;
@@ -433,6 +452,68 @@ class _ForestViewState extends State<_ForestView>
                     },
                   );
                 },
+              ),
+            ),
+
+            // 草地地面渐变（视口底部，营造落地感）
+            Positioned(
+              left: _kYAxisWidth,
+              right: 0,
+              bottom: _kXAxisHeight,
+              height: 72,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: isDark
+                          ? [Colors.transparent, const Color(0xCC1A0C06)]
+                          : [Colors.transparent, const Color(0xCC7A5C30)],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // 远景薄雾（视口顶部，营造时间纵深感）
+            Positioned(
+              left: _kYAxisWidth,
+              top: 0,
+              right: 0,
+              height: 100,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: isDark
+                          ? [const Color(0x550D1B2A), Colors.transparent]
+                          : [const Color(0x66D6EAF8), Colors.transparent],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // 环境萤光粒子
+            Positioned(
+              left: _kYAxisWidth,
+              top: 0,
+              right: 0,
+              bottom: _kXAxisHeight,
+              child: AnimatedBuilder(
+                animation: _ambientCtrl,
+                builder: (_, __) => IgnorePointer(
+                  child: CustomPaint(
+                    painter: _AmbientParticlesPainter(
+                      _ambientParticles,
+                      _ambientCtrl.value,
+                      isDark,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -1031,4 +1112,52 @@ class _SwayForestPainter extends CustomPainter {
       old.windFactor != windFactor ||
       old.viewportW != viewportW ||
       old.visRect != visRect;
+}
+
+// ── 环境萤光粒子 ──────────────────────────────────────────────────────────────
+
+class _AmbientParticle {
+  const _AmbientParticle({
+    required this.x,
+    required this.y,
+    required this.speed,
+    required this.size,
+    required this.phase,
+  });
+  final double x;
+  final double y;
+  final double speed;
+  final double size;
+  final double phase;
+}
+
+class _AmbientParticlesPainter extends CustomPainter {
+  _AmbientParticlesPainter(this.particles, this.t, this.isDark);
+  final List<_AmbientParticle> particles;
+  final double t;
+  final bool isDark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final p in particles) {
+      final phase = (t + p.phase) % 1.0;
+      final cy = ((p.y - phase * p.speed) % 1.0 + 1.0) % 1.0;
+      final driftX = math.sin(phase * math.pi * 2 + p.x * 5) * 0.015;
+      final cx = ((p.x + driftX) % 1.0 + 1.0) % 1.0;
+      final alpha = math.sin(phase * math.pi).clamp(0.0, 1.0) * 0.45;
+      canvas.drawCircle(
+        Offset(cx * size.width, cy * size.height),
+        p.size,
+        Paint()
+          ..color = (isDark
+                  ? const Color(0xFFFFE082)
+                  : const Color(0xFF9CCC65))
+              .withValues(alpha: alpha)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_AmbientParticlesPainter old) => old.t != t;
 }
