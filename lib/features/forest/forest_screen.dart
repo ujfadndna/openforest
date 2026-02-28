@@ -18,7 +18,9 @@ const _kJitterX = 18.0; // 时间抖动（像素）
 const _kJitterY = 18.0; // 日期行内垂直抖动（像素）
 const _kCanvasTopPadding = 100.0; // 画布顶部留白，防止远处树木被裁剪
 const _kCanvasBottomPadding = 60.0; // 画布底部留白，防止近处树木被裁剪
-const _kCanvasLeftPadding = 80.0; // 画布左侧留白，防止深夜/凌晨树木被裁剪
+const _kCanvasLeftPadding = 80.0; // 画布左侧留白
+const _kStartHour = 8.0; // 横轴起始时刻（08:00）
+const _kEndHour = 24.0; // 横轴结束时刻（24:00）
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
@@ -219,14 +221,15 @@ class _ForestViewState extends State<_ForestView>
     _sortedDates = dateSet.toList()..sort((a, b) => b.compareTo(a));
     final numDates = _sortedDates.length;
 
-    const virtualW = 24.0 * _kPixelsPerHour;
+    const virtualW = (_kEndHour - _kStartHour) * _kPixelsPerHour;
 
     final placements = <_TreePlacement>[];
     for (var i = 0; i < n; i++) {
       final st = sessions[i].startTime;
       final hour = st.hour + st.minute / 60.0;
+      final clampedHour = (hour - _kStartHour).clamp(0.0, _kEndHour - _kStartHour);
       final jitterX = (rng.nextDouble() - 0.5) * 2 * _kJitterX;
-      final x = (_kCanvasLeftPadding + hour / 24.0 * virtualW + jitterX)
+      final x = (_kCanvasLeftPadding + clampedHour * _kPixelsPerHour + jitterX)
           .clamp(0.0, virtualW + _kCanvasLeftPadding);
 
       final date = DateTime(st.year, st.month, st.day);
@@ -275,12 +278,9 @@ class _ForestViewState extends State<_ForestView>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final skyColors = isDark
-        ? const [Color(0xFF0D1B2A), Color(0xFF162535), Color(0xFF2C1A0E), Color(0xFF120905)]
-        : const [Color(0xFFA8D4E8), Color(0xFFD5EEFA), Color(0xFFE8F5EC), Color(0xFF7AAA88)];
-    const skyStops = [0.0, 0.38, 0.72, 1.0];
+    final bgColor = isDark ? const Color(0xFF0E1820) : const Color(0xFFEDF6F9);
 
-    const virtualW = 24.0 * _kPixelsPerHour;
+    const virtualW = (_kEndHour - _kStartHour) * _kPixelsPerHour;
     const canvasW = virtualW + _kCanvasLeftPadding;
     final virtualH = math.max(1, _sortedDates.length).toDouble() * _kRowHeight +
         _kCanvasTopPadding + _kCanvasBottomPadding;
@@ -290,19 +290,8 @@ class _ForestViewState extends State<_ForestView>
       child: ClipRect(
         child: Stack(
           children: [
-            // 土壤渐变（固定背景）
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: skyColors,
-                    stops: skyStops,
-                  ),
-                ),
-              ),
-            ),
+            // 纯色背景
+            Positioned.fill(child: ColoredBox(color: bgColor)),
 
             // 主画布区域
             Positioned(
@@ -343,8 +332,10 @@ class _ForestViewState extends State<_ForestView>
                       final minX = math.min(-(capturedCanvasW - capturedW), 0.0);
                       final minY = math.min(-(capturedVirtualH - capturedH), 0.0);
 
+                      final clampedHour =
+                          (currentHour - _kStartHour).clamp(0.0, _kEndHour - _kStartHour);
                       final xOffset = (-(_kCanvasLeftPadding +
-                              currentHour / 24.0 * virtualW -
+                              clampedHour * _kPixelsPerHour -
                               capturedW / 2))
                           .clamp(minX, 0.0);
                       final selectedVirtualY =
@@ -456,7 +447,7 @@ class _ForestViewState extends State<_ForestView>
                       end: Alignment.bottomCenter,
                       colors: isDark
                           ? [const Color(0x550D1B2A), Colors.transparent]
-                          : [const Color(0x66A8D4E8), Colors.transparent],
+                          : [const Color(0x66EDF6F9), Colors.transparent],
                     ),
                   ),
                 ),
