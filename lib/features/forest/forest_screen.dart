@@ -14,8 +14,6 @@ import '../weather/weather_type.dart';
 
 const _kPixelsPerHour = 80.0; // x轴：每小时宽度
 const _kRowHeight = 60.0; // y轴：每日行高
-const _kYAxisWidth = 72.0; // Y轴标签面板宽度（固定）
-const _kXAxisHeight = 36.0; // X轴标签面板高度（固定）
 const _kJitterX = 18.0; // 时间抖动（像素）
 const _kJitterY = 18.0; // 日期行内垂直抖动（像素）
 const _kCanvasTopPadding = 100.0; // 画布顶部留白，防止远处树木被裁剪
@@ -279,7 +277,7 @@ class _ForestViewState extends State<_ForestView>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final skyColors = isDark
         ? const [Color(0xFF0D1B2A), Color(0xFF162535), Color(0xFF2C1A0E), Color(0xFF120905)]
-        : const [Color(0xFFD6EAF8), Color(0xFFFDEBD0), Color(0xFFD4A574), Color(0xFF8B5E3C)];
+        : const [Color(0xFFA8D4E8), Color(0xFFD5EEFA), Color(0xFFE8F5EC), Color(0xFF7AAA88)];
     const skyStops = [0.0, 0.38, 0.72, 1.0];
 
     const virtualW = 24.0 * _kPixelsPerHour;
@@ -306,12 +304,12 @@ class _ForestViewState extends State<_ForestView>
               ),
             ),
 
-            // 主画布区域（左侧留出Y轴，底部留出X轴）
+            // 主画布区域
             Positioned(
-              left: _kYAxisWidth,
+              left: 0,
               top: 0,
               right: 0,
-              bottom: _kXAxisHeight,
+              bottom: 0,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final viewportW = constraints.maxWidth;
@@ -423,54 +421,11 @@ class _ForestViewState extends State<_ForestView>
               ),
             ),
 
-            // Y 轴（固定左侧，标签跟随纵向平移）
-            Positioned(
-              left: 0,
-              top: 0,
-              width: _kYAxisWidth,
-              bottom: _kXAxisHeight,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return AnimatedBuilder(
-                    animation: _transformCtrl,
-                    builder: (context, __) {
-                      final m = _transformCtrl.value;
-                      final yOffset = m.getTranslation().y;
-                      final scale = m.getMaxScaleOnAxis();
-                      return _buildYAxis(
-                          constraints.maxHeight, yOffset, scale, isDark);
-                    },
-                  );
-                },
-              ),
-            ),
-
-            // X 轴（固定底部，标签跟随横向平移）
-            Positioned(
-              left: _kYAxisWidth,
-              bottom: 0,
-              right: 0,
-              height: _kXAxisHeight,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return AnimatedBuilder(
-                    animation: _transformCtrl,
-                    builder: (context, __) {
-                      final m = _transformCtrl.value;
-                      final xOffset = m.getTranslation().x;
-                      final scale = m.getMaxScaleOnAxis();
-                      return _buildXAxis(constraints.maxWidth, xOffset, scale, isDark);
-                    },
-                  );
-                },
-              ),
-            ),
-
             // 草地地面渐变（视口底部，营造落地感）
             Positioned(
-              left: _kYAxisWidth,
+              left: 0,
               right: 0,
-              bottom: _kXAxisHeight,
+              bottom: 0,
               height: 72,
               child: IgnorePointer(
                 child: DecoratedBox(
@@ -489,7 +444,7 @@ class _ForestViewState extends State<_ForestView>
 
             // 远景薄雾（视口顶部，营造时间纵深感）
             Positioned(
-              left: _kYAxisWidth,
+              left: 0,
               top: 0,
               right: 0,
               height: 100,
@@ -501,7 +456,7 @@ class _ForestViewState extends State<_ForestView>
                       end: Alignment.bottomCenter,
                       colors: isDark
                           ? [const Color(0x550D1B2A), Colors.transparent]
-                          : [const Color(0x66D6EAF8), Colors.transparent],
+                          : [const Color(0x66A8D4E8), Colors.transparent],
                     ),
                   ),
                 ),
@@ -510,10 +465,10 @@ class _ForestViewState extends State<_ForestView>
 
             // 环境萤光粒子
             Positioned(
-              left: _kYAxisWidth,
+              left: 0,
               top: 0,
               right: 0,
-              bottom: _kXAxisHeight,
+              bottom: 0,
               child: AnimatedBuilder(
                 animation: _ambientCtrl,
                 builder: (_, __) => IgnorePointer(
@@ -533,100 +488,6 @@ class _ForestViewState extends State<_ForestView>
     );
   }
 
-  Widget _buildYAxis(double viewportH, double yOffset, double scale, bool isDark) {
-    final labelColor = isDark ? Colors.white70 : Colors.black54;
-    final selectedColor = isDark ? Colors.white : Colors.black87;
-    final numDates = _sortedDates.length;
-
-    return ClipRect(
-      child: Stack(
-        children: [
-          // 半透明背景
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: (isDark ? Colors.black : Colors.white)
-                    .withValues(alpha: 0.05),
-              ),
-            ),
-          ),
-          for (var i = 0; i < numDates; i++)
-            Builder(builder: (context) {
-              final rowCenterY = _perspectiveRowY(i, numDates);
-              final viewportY = scale * rowCenterY + yOffset;
-              if (viewportY < -_kRowHeight ||
-                  viewportY > viewportH + _kRowHeight) {
-                return const SizedBox.shrink();
-              }
-              final date = _sortedDates[i];
-              final isSelected = date == _selectedDate;
-              final label =
-                  '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
-              return Positioned(
-                top: viewportY - 20,
-                left: 0,
-                right: 0,
-                height: 40,
-                child: GestureDetector(
-                  onTap: () => setState(() => _selectedDate = date),
-                  child: Center(
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight:
-                            isSelected ? FontWeight.w700 : FontWeight.w400,
-                        color: isSelected ? selectedColor : labelColor,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildXAxis(double viewportW, double xOffset, double scale, bool isDark) {
-    final labelColor = isDark ? Colors.white70 : Colors.black54;
-    const virtualW = 24.0 * _kPixelsPerHour;
-
-    return ClipRect(
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: (isDark ? Colors.black : Colors.white)
-                    .withValues(alpha: 0.05),
-              ),
-            ),
-          ),
-          for (var hour = 0; hour < 24; hour += 3)
-            Builder(builder: (context) {
-              final virtualX = _kCanvasLeftPadding + hour / 24.0 * virtualW;
-              final viewportX = scale * virtualX + xOffset;
-              if (viewportX < -60 || viewportX > viewportW + 60) {
-                return const SizedBox.shrink();
-              }
-              return Positioned(
-                left: viewportX - 20,
-                top: 0,
-                width: 40,
-                bottom: 0,
-                child: Center(
-                  child: Text(
-                    '${hour.toString().padLeft(2, '0')}:00',
-                    style: TextStyle(fontSize: 10, color: labelColor),
-                  ),
-                ),
-              );
-            }),
-        ],
-      ),
-    );
-  }
 
   /// 计算当前视口在虚拟画布中的可见矩形（含 120px 安全边距防止 pop-in）
   Rect _computeVisibleRect(double viewportW, double viewportH) {
