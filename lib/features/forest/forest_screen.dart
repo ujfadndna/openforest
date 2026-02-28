@@ -18,7 +18,8 @@ const _kYAxisWidth = 72.0; // Y轴标签面板宽度（固定）
 const _kXAxisHeight = 36.0; // X轴标签面板高度（固定）
 const _kJitterX = 18.0; // 时间抖动（像素）
 const _kJitterY = 18.0; // 日期行内垂直抖动（像素）
-const _kCanvasTopPadding = 50.0; // 画布顶部留白，防止远处树木被裁剪
+const _kCanvasTopPadding = 100.0; // 画布顶部留白，防止远处树木被裁剪
+const _kCanvasBottomPadding = 60.0; // 画布底部留白，防止近处树木被裁剪
 const _kCanvasLeftPadding = 80.0; // 画布左侧留白，防止深夜/凌晨树木被裁剪
 
 // ── Provider ──────────────────────────────────────────────────────────────────
@@ -284,7 +285,7 @@ class _ForestViewState extends State<_ForestView>
     const virtualW = 24.0 * _kPixelsPerHour;
     const canvasW = virtualW + _kCanvasLeftPadding;
     final virtualH = math.max(1, _sortedDates.length).toDouble() * _kRowHeight +
-        _kCanvasTopPadding;
+        _kCanvasTopPadding + _kCanvasBottomPadding;
 
     return WeatherOverlay(
       weather: widget.weather,
