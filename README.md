@@ -18,8 +18,10 @@
 - **统计页**：今日 / 本周 / 本月 / 按标签 / 应用使用，图表展示
 - **应用使用追踪**：记录专注期间切换过的应用及时长
 - **主题**：跟随系统 / 浅色 / 深色
+<img width="1356" height="861" alt="image" src="https://github.com/user-attachments/assets/af481cbb-ad2a-49bf-a2f7-b8151b0c87da" />
 
-<img width="1235" height="754" alt="image" src="https://github.com/user-attachments/assets/d091e79f-7f79-4f70-8d91-619617b0728b" />
+
+<img width="1350" height="859" alt="image" src="https://github.com/user-attachments/assets/bec65b35-8c8a-4203-899d-5ef4396f7433" />
 
 
 
