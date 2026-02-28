@@ -18,7 +18,8 @@ const _kJitterX = 18.0; // 时间抖动（像素）
 const _kJitterY = 18.0; // 日期行内垂直抖动（像素）
 const _kCanvasTopPadding = 100.0; // 画布顶部留白，防止远处树木被裁剪
 const _kCanvasBottomPadding = 60.0; // 画布底部留白，防止近处树木被裁剪
-const _kCanvasLeftPadding = 80.0; // 画布左侧留白
+const _kCanvasLeftPadding = 100.0; // 画布左侧留白
+const _kCanvasRightPadding = 100.0; // 画布右侧留白，防止末尾树木被裁剪
 const _kStartHour = 8.0; // 横轴起始时刻（08:00）
 const _kEndHour = 24.0; // 横轴结束时刻（24:00）
 
@@ -284,7 +285,7 @@ class _ForestViewState extends State<_ForestView>
     const skyStops = [0.0, 0.38, 0.72, 1.0];
 
     const virtualW = (_kEndHour - _kStartHour) * _kPixelsPerHour;
-    const canvasW = virtualW + _kCanvasLeftPadding;
+    const canvasW = virtualW + _kCanvasLeftPadding + _kCanvasRightPadding;
     final virtualH = math.max(1, _sortedDates.length).toDouble() * _kRowHeight +
         _kCanvasTopPadding + _kCanvasBottomPadding;
 
@@ -470,6 +471,9 @@ class _ForestViewState extends State<_ForestView>
     final session = widget.sessions[i];
     final p = _placements[i];
     final treeSize = viewportW * 0.22 * p.scale;
+    final st = session.startTime;
+    final timeStr =
+        '${st.hour.toString().padLeft(2, '0')}:${st.minute.toString().padLeft(2, '0')}';
 
     return Positioned(
       left: p.x - treeSize / 2,
@@ -487,6 +491,22 @@ class _ForestViewState extends State<_ForestView>
             clipBehavior: Clip.none,
             children: [
               const SizedBox.expand(), // 透明 hit target
+              if (p.scale >= 0.45)
+                Positioned(
+                  top: treeSize * 0.93,
+                  left: 0,
+                  right: 0,
+                  child: Text(
+                    timeStr,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 9.0,
+                      color: Color(0xBBFFFFFF),
+                      fontWeight: FontWeight.w500,
+                      shadows: [Shadow(color: Colors.black54, blurRadius: 2)],
+                    ),
+                  ),
+                ),
               if (_hoveredIndex == i)
                 Positioned(
                   bottom: treeSize * 0.9,
@@ -564,6 +584,8 @@ class _TreeTooltip extends StatelessWidget {
     final st = session.startTime;
     final dateStr =
         '${st.year}/${st.month.toString().padLeft(2, '0')}/${st.day.toString().padLeft(2, '0')}';
+    final timeStr =
+        '${st.hour.toString().padLeft(2, '0')}:${st.minute.toString().padLeft(2, '0')}';
     final speciesName =
         _kSpeciesNames[session.treeSpecies] ?? session.treeSpecies;
 
@@ -613,7 +635,7 @@ class _TreeTooltip extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            dateStr,
+            '$dateStr  $timeStr',
             style: theme.textTheme.labelSmall
                 ?.copyWith(color: cs.onSurface.withValues(alpha: 0.6)),
           ),
