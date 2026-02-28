@@ -65,82 +65,8 @@ class OpenForestApp extends ConsumerWidget {
         useMaterial3: true,
       ),
       themeMode: settings.themeMode,
-      builder: (context, child) => _FpsOverlay(child: child!),
+      builder: (context, child) => child!,
       home: const HomeShell(),
-    );
-  }
-}
-
-// ── FPS 计数器悬浮层 ──────────────────────────────────────────────────────────
-
-class _FpsOverlay extends StatefulWidget {
-  const _FpsOverlay({required this.child});
-  final Widget child;
-
-  @override
-  State<_FpsOverlay> createState() => _FpsOverlayState();
-}
-
-class _FpsOverlayState extends State<_FpsOverlay>
-    with SingleTickerProviderStateMixin {
-  late final Ticker _ticker;
-  final List<int> _times = [];
-  double _fps = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _ticker = createTicker((_) {
-      final now = DateTime.now().microsecondsSinceEpoch;
-      _times.add(now);
-      if (_times.length > 60) _times.removeAt(0);
-      if (_times.length >= 2) {
-        final span = (_times.last - _times.first) / 1e6;
-        final fps = (_times.length - 1) / span;
-        if ((fps - _fps).abs() >= 1) setState(() => _fps = fps);
-      }
-    })..start();
-  }
-
-  @override
-  void dispose() {
-    _ticker.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _fps >= 55
-        ? Colors.greenAccent
-        : _fps >= 30
-            ? Colors.orangeAccent
-            : Colors.redAccent;
-    return Stack(
-      children: [
-        widget.child,
-        Positioned(
-          top: 8,
-          right: 8,
-          child: IgnorePointer(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                '${_fps.round()} fps',
-                style: TextStyle(
-                  color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'Courier New',
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
