@@ -324,9 +324,16 @@ class _ForestViewState extends State<_ForestView>
                   }
 
                   // 首次 build 时设定初始变换（滚动到选中日期+当前时刻）
-                  if (!_viewInitialized && _sortedDates.isNotEmpty) {
+                  // 直接捕获当前帧的 viewportW/H，避免依赖缓存导致滚动失效
+                  if (!_viewInitialized && _sortedDates.isNotEmpty &&
+                      viewportW > 0 && viewportH > 0) {
                     _viewInitialized = true;
+                    final capturedW = viewportW;
+                    final capturedH = viewportH;
+                    const capturedCanvasW = canvasW;
+                    final capturedVirtualH = virtualH;
                     WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
                       final now = DateTime.now();
                       final currentHour = now.hour + now.minute / 60.0;
                       final selectedIdx = _selectedDate != null
@@ -334,18 +341,17 @@ class _ForestViewState extends State<_ForestView>
                           : 0;
                       final numDates = _sortedDates.length;
 
-                      final minX = math.min(-(canvasW - _cachedViewportW), 0.0);
-                      final minY =
-                          math.min(-(virtualH - _cachedViewportH), 0.0);
+                      final minX = math.min(-(capturedCanvasW - capturedW), 0.0);
+                      final minY = math.min(-(capturedVirtualH - capturedH), 0.0);
 
                       final xOffset = (-(_kCanvasLeftPadding +
                               currentHour / 24.0 * virtualW -
-                              _cachedViewportW / 2))
+                              capturedW / 2))
                           .clamp(minX, 0.0);
                       final selectedVirtualY =
                           _perspectiveRowY(selectedIdx, numDates);
                       final yOffset =
-                          (-(selectedVirtualY - _cachedViewportH / 2))
+                          (-(selectedVirtualY - capturedH / 2))
                               .clamp(minY, 0.0);
                       _transformCtrl.value =
                           Matrix4.translationValues(xOffset, yOffset, 0);
