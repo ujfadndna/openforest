@@ -433,9 +433,11 @@ class _ForestViewState extends State<_ForestView>
                   return AnimatedBuilder(
                     animation: _transformCtrl,
                     builder: (context, __) {
-                      final yOffset = _transformCtrl.value.getTranslation().y;
+                      final m = _transformCtrl.value;
+                      final yOffset = m.getTranslation().y;
+                      final scale = m.getMaxScaleOnAxis();
                       return _buildYAxis(
-                          constraints.maxHeight, yOffset, isDark);
+                          constraints.maxHeight, yOffset, scale, isDark);
                     },
                   );
                 },
@@ -453,8 +455,10 @@ class _ForestViewState extends State<_ForestView>
                   return AnimatedBuilder(
                     animation: _transformCtrl,
                     builder: (context, __) {
-                      final xOffset = _transformCtrl.value.getTranslation().x;
-                      return _buildXAxis(constraints.maxWidth, xOffset, isDark);
+                      final m = _transformCtrl.value;
+                      final xOffset = m.getTranslation().x;
+                      final scale = m.getMaxScaleOnAxis();
+                      return _buildXAxis(constraints.maxWidth, xOffset, scale, isDark);
                     },
                   );
                 },
@@ -528,7 +532,7 @@ class _ForestViewState extends State<_ForestView>
     );
   }
 
-  Widget _buildYAxis(double viewportH, double yOffset, bool isDark) {
+  Widget _buildYAxis(double viewportH, double yOffset, double scale, bool isDark) {
     final labelColor = isDark ? Colors.white70 : Colors.black54;
     final selectedColor = isDark ? Colors.white : Colors.black87;
     final numDates = _sortedDates.length;
@@ -548,7 +552,7 @@ class _ForestViewState extends State<_ForestView>
           for (var i = 0; i < numDates; i++)
             Builder(builder: (context) {
               final rowCenterY = _perspectiveRowY(i, numDates);
-              final viewportY = rowCenterY + yOffset;
+              final viewportY = scale * rowCenterY + yOffset;
               if (viewportY < -_kRowHeight ||
                   viewportY > viewportH + _kRowHeight) {
                 return const SizedBox.shrink();
@@ -583,7 +587,7 @@ class _ForestViewState extends State<_ForestView>
     );
   }
 
-  Widget _buildXAxis(double viewportW, double xOffset, bool isDark) {
+  Widget _buildXAxis(double viewportW, double xOffset, double scale, bool isDark) {
     final labelColor = isDark ? Colors.white70 : Colors.black54;
     const virtualW = 24.0 * _kPixelsPerHour;
 
@@ -601,7 +605,7 @@ class _ForestViewState extends State<_ForestView>
           for (var hour = 0; hour < 24; hour += 3)
             Builder(builder: (context) {
               final virtualX = _kCanvasLeftPadding + hour / 24.0 * virtualW;
-              final viewportX = virtualX + xOffset;
+              final viewportX = scale * virtualX + xOffset;
               if (viewportX < -60 || viewportX > viewportW + 60) {
                 return const SizedBox.shrink();
               }
