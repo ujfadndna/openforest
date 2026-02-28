@@ -34,45 +34,7 @@
 - 下载exe运行即可
 ```
 
-## 项目结构
 
-```
-lib/
-├── core/
-│   ├── timer_service.dart      # 计时核心逻辑
-│   ├── coin_service.dart       # 金币计算
-│   ├── focus_detector.dart     # 失焦检测（桌面端）
-│   └── app_monitor.dart        # 应用使用追踪
-├── data/
-│   ├── database.dart           # SQLite 初始化
-│   ├── models/                 # 数据模型
-│   └── repositories/           # 数据访问层
-├── features/
-│   ├── timer/                  # 计时器页面
-│   ├── forest/                 # 森林页面
-│   ├── stats/                  # 统计页面
-│   ├── shop/                   # 商店页面
-│   ├── allowlist/              # 黑名单管理
-│   └── settings/               # 设置页面
-└── main.dart
-assets/
-└── trees/
-    └── trees.json              # 树种配置
-```
-
-## 技术栈
-
-| 依赖 | 用途 |
-|------|------|
-| [flutter_riverpod](https://pub.dev/packages/flutter_riverpod) | 状态管理 |
-| [drift](https://pub.dev/packages/drift) | SQLite ORM |
-| [fl_chart](https://pub.dev/packages/fl_chart) | 统计图表 |
-| [window_manager](https://pub.dev/packages/window_manager) | 桌面窗口管理 |
-| [local_notifier](https://pub.dev/packages/local_notifier) | 系统通知 |
-| [shared_preferences](https://pub.dev/packages/shared_preferences) | 设置持久化 |
-
-
-然后在 `lib/features/timer/tree_painter.dart` 的 `_kStyles` 里添加对应的视觉参数。
 
 ## License
 
