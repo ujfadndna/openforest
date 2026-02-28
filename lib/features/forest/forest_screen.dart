@@ -278,7 +278,10 @@ class _ForestViewState extends State<_ForestView>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF0E1820) : const Color(0xFFEDF6F9);
+    final skyColors = isDark
+        ? const [Color(0xFF0D1B2A), Color(0xFF162535), Color(0xFF2C1A0E), Color(0xFF120905)]
+        : const [Color(0xFFA8D4E8), Color(0xFFD5EEFA), Color(0xFFE8F5EC), Color(0xFF7AAA88)];
+    const skyStops = [0.0, 0.38, 0.72, 1.0];
 
     const virtualW = (_kEndHour - _kStartHour) * _kPixelsPerHour;
     const canvasW = virtualW + _kCanvasLeftPadding;
@@ -290,8 +293,19 @@ class _ForestViewState extends State<_ForestView>
       child: ClipRect(
         child: Stack(
           children: [
-            // 纯色背景
-            Positioned.fill(child: ColoredBox(color: bgColor)),
+            // 渐变背景
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: skyColors,
+                    stops: skyStops,
+                  ),
+                ),
+              ),
+            ),
 
             // 主画布区域
             Positioned(
@@ -409,48 +423,6 @@ class _ForestViewState extends State<_ForestView>
                     ),
                   );
                 },
-              ),
-            ),
-
-            // 草地地面渐变（视口底部，营造落地感）
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 72,
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: isDark
-                          ? [Colors.transparent, const Color(0xCC1A0C06)]
-                          : [Colors.transparent, const Color(0xCC7A5C30)],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // 远景薄雾（视口顶部，营造时间纵深感）
-            Positioned(
-              left: 0,
-              top: 0,
-              right: 0,
-              height: 100,
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: isDark
-                          ? [const Color(0x550D1B2A), Colors.transparent]
-                          : [const Color(0x66EDF6F9), Colors.transparent],
-                    ),
-                  ),
-                ),
               ),
             ),
 
