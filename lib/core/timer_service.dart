@@ -282,6 +282,9 @@ class TimerService extends ChangeNotifier {
     unawaited(onComplete?.call(coins));
   }
 
+  /// session 入库后调用，通知依赖方（如森林）重新拉数据
+  void markSessionSaved() => notifyListeners();
+
   void _cancelTicker() {
     _ticker?.cancel();
     _ticker = null;

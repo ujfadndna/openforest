@@ -1,5 +1,4 @@
-import 'dart:async';
-
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_notifier/local_notifier.dart';
 
@@ -58,7 +57,8 @@ final coinRepositoryProvider = Provider<CoinRepository>((ref) {
   return repo;
 });
 
-final accumulatedProgressProvider = Provider<AccumulatedProgressRepository>((ref) {
+final accumulatedProgressProvider =
+    Provider<AccumulatedProgressRepository>((ref) {
   return AccumulatedProgressRepository();
 });
 
@@ -83,31 +83,102 @@ final timerServiceProvider = ChangeNotifierProvider<TimerService>((ref) {
 
   // 完成一段专注（非休息）→ 累加秒数，够了就种树
   timer.onComplete = (coinsEarned) async {
+    try {
+      if (timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak) return;
+
+      await appMonitor.stop();
+
+      final addedSeconds = timer.targetDuration.inSeconds;
+      final species = timer.currentSpecies;
+
+      // 取树种要求时长
+      final trees = ref.read(treeSpeciesListProvider).asData?.value ?? [];
+      final treeData = trees.firstWhere(
+        (t) => t.id == species,
+        orElse: () => trees.isNotEmpty
+            ? trees.first
+            : const TreeSpecies(
+                id: 'oak',
+                name: '橡树',
+                price: 0,
+                unlockedByDefault: true,
+                description: '',
+                milestoneMinutes: 45),
+      );
+      final requiredSeconds = treeData.milestoneMinutes * 60;
+
+      var accumulated = ref.read(accumulatedSecondsProvider) + addedSeconds;
+      var treePlanted = false;
+
+      // 可能一次完成多棵（时长很长时）
+      while (requiredSeconds > 0 && accumulated >= requiredSeconds) {
+        accumulated -= requiredSeconds;
+        treePlanted = true;
+
+        final end = timer.endTime ?? DateTime.now();
+        final start =
+            end.subtract(Duration(seconds: treeData.milestoneMinutes * 60));
+
+        final sessionId = await sessionRepo.addSession(
+          startTime: start,
+          endTime: end,
+          durationMinutes: treeData.milestoneMinutes,
+          completed: true,
+          coinsEarned: 0,
+          treeSpecies: species,
+          tag: timer.currentTag?.name,
+        );
+        appMonitor.updateSessionId(sessionId);
+
+        final settings = ref.read(settingsControllerProvider);
+        if (settings.treeNotification) {
+          final notification = LocalNotification(
+            title: 'OpenForest',
+            body: '一棵${treeData.name}种下了，继续专注吧',
+          );
+          await notification.show();
+        }
+      }
+
+      ref.read(accumulatedSecondsProvider.notifier).state = accumulated;
+      await accRepo.save(accumulated, species);
+      if (treePlanted) timer.markSessionSaved();
+    } catch (e, st) {
+      debugPrint('onComplete error: $e');
+      debugPrint('$st');
+    }
+  };
+
+  // 中止 → 清零累计
+  timer.onFailed = () async {
     if (timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak) return;
 
     await appMonitor.stop();
 
-    final addedSeconds = timer.targetDuration.inSeconds;
-    final species = timer.currentSpecies;
+    ref.read(accumulatedSecondsProvider.notifier).state = 0;
+    await accRepo.clear();
+  };
 
-    // 取树种要求时长
-    final trees = ref.read(treeSpeciesListProvider).asData?.value ?? [];
-    final treeData = trees.firstWhere(
-      (t) => t.id == species,
-      orElse: () => trees.isNotEmpty
-          ? trees.first
-          : const TreeSpecies(id: 'oak', name: '橡树', price: 0, unlockedByDefault: true, description: '', milestoneMinutes: 45),
-    );
-    final requiredSeconds = treeData.milestoneMinutes * 60;
+  // 正计时里程碑：每达到一个里程碑就种一棵树
+  timer.onMilestoneReached = () async {
+    try {
+      final species = timer.currentSpecies;
+      final trees = ref.read(treeSpeciesListProvider).asData?.value ?? [];
+      final treeData = trees.firstWhere(
+        (t) => t.id == species,
+        orElse: () => trees.isNotEmpty
+            ? trees.first
+            : const TreeSpecies(
+                id: 'oak',
+                name: '橡树',
+                price: 0,
+                unlockedByDefault: true,
+                description: '',
+                milestoneMinutes: 45),
+      );
 
-    var accumulated = ref.read(accumulatedSecondsProvider) + addedSeconds;
-
-    // 可能一次完成多棵（时长很长时）
-    while (requiredSeconds > 0 && accumulated >= requiredSeconds) {
-      accumulated -= requiredSeconds;
-
-      final end = timer.endTime ?? DateTime.now();
-      final start = end.subtract(Duration(seconds: treeData.milestoneMinutes * 60));
+      final end = DateTime.now();
+      final start = end.subtract(Duration(minutes: treeData.milestoneMinutes));
 
       final sessionId = await sessionRepo.addSession(
         startTime: start,
@@ -128,54 +199,10 @@ final timerServiceProvider = ChangeNotifierProvider<TimerService>((ref) {
         );
         await notification.show();
       }
-    }
-
-    ref.read(accumulatedSecondsProvider.notifier).state = accumulated;
-    await accRepo.save(accumulated, species);
-  };
-
-  // 中止 → 清零累计
-  timer.onFailed = () async {
-    if (timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak) return;
-
-    await appMonitor.stop();
-
-    ref.read(accumulatedSecondsProvider.notifier).state = 0;
-    await accRepo.clear();
-  };
-
-  // 正计时里程碑：每达到一个里程碑就种一棵树
-  timer.onMilestoneReached = () async {
-    final species = timer.currentSpecies;
-    final trees = ref.read(treeSpeciesListProvider).asData?.value ?? [];
-    final treeData = trees.firstWhere(
-      (t) => t.id == species,
-      orElse: () => trees.isNotEmpty
-          ? trees.first
-          : const TreeSpecies(id: 'oak', name: '橡树', price: 0, unlockedByDefault: true, description: '', milestoneMinutes: 45),
-    );
-
-    final end = DateTime.now();
-    final start = end.subtract(Duration(minutes: treeData.milestoneMinutes));
-
-    final sessionId = await sessionRepo.addSession(
-      startTime: start,
-      endTime: end,
-      durationMinutes: treeData.milestoneMinutes,
-      completed: true,
-      coinsEarned: 0,
-      treeSpecies: species,
-      tag: timer.currentTag?.name,
-    );
-    appMonitor.updateSessionId(sessionId);
-
-    final settings = ref.read(settingsControllerProvider);
-    if (settings.treeNotification) {
-      final notification = LocalNotification(
-        title: 'OpenForest',
-        body: '一棵${treeData.name}种下了，继续专注吧',
-      );
-      await notification.show();
+      timer.markSessionSaved();
+    } catch (e, st) {
+      debugPrint('onMilestoneReached error: $e');
+      debugPrint('$st');
     }
   };
 

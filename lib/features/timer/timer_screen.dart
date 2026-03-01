@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -63,7 +65,8 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     final treeState = switch (timer.state) {
       TimerState.completed => TreeVisualState.completed,
       TimerState.failed => TreeVisualState.dead,
-      _ => timer.withering ? TreeVisualState.withering : TreeVisualState.growing,
+      _ =>
+        timer.withering ? TreeVisualState.withering : TreeVisualState.growing,
     };
 
     // 累计进度：已累计秒数 + 当前段已过秒数（非休息时）
@@ -72,11 +75,19 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
       (t) => t.id == selectedSpecies,
       orElse: () => trees.isNotEmpty
           ? trees.first
-          : const TreeSpecies(id: 'oak', name: '橡树', price: 0, unlockedByDefault: true, description: '', milestoneMinutes: 45),
+          : const TreeSpecies(
+              id: 'oak',
+              name: '橡树',
+              price: 0,
+              unlockedByDefault: true,
+              description: '',
+              milestoneMinutes: 45),
     );
     final requiredSeconds = currentSpeciesData.milestoneMinutes * 60;
-    final isBreakPhase = timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak;
-    final currentSegmentSeconds = (!isIdle && !isBreakPhase) ? timer.elapsed.inSeconds : 0;
+    final isBreakPhase =
+        timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak;
+    final currentSegmentSeconds =
+        (!isIdle && !isBreakPhase) ? timer.elapsed.inSeconds : 0;
     final totalAccumulated = accumulatedSeconds + currentSegmentSeconds;
     final treeProgress = requiredSeconds > 0
         ? (totalAccumulated % requiredSeconds) / requiredSeconds
@@ -90,19 +101,24 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     final sliderMin = settings.minFocusMinutes.toDouble();
     final sliderMax = settings.maxFocusMinutes.toDouble();
 
-    final effectiveWorkMinutes =
-        _selectedMode == TimerMode.pomodoro ? settings.pomodoroWorkMinutes : _selectedMinutes;
+    final effectiveWorkMinutes = _selectedMode == TimerMode.pomodoro
+        ? settings.pomodoroWorkMinutes
+        : _selectedMinutes;
 
     final durationLabel = switch (_selectedMode) {
       TimerMode.stopwatch => '正计时 · 已累计 ${(totalAccumulated ~/ 60)} 分钟',
       TimerMode.pomodoro => timer.isPomodoroBreak
-          ? (timer.isLongBreak ? '长休息 ${settings.pomodoroLongBreakMinutes} 分钟' : '休息 ${settings.pomodoroBreakMinutes} 分钟')
+          ? (timer.isLongBreak
+              ? '长休息 ${settings.pomodoroLongBreakMinutes} 分钟'
+              : '休息 ${settings.pomodoroBreakMinutes} 分钟')
           : '番茄钟 第${timer.pomodoroRound}/${timer.pomodoroTotalRounds}个 · 已累计 ${(totalAccumulated ~/ 60)} 分钟 / ${currentSpeciesData.milestoneMinutes} 分钟',
-      _ => '专注时长：$effectiveWorkMinutes 分钟 · 已累计 ${(totalAccumulated ~/ 60)} 分钟 / ${currentSpeciesData.milestoneMinutes} 分钟',
+      _ =>
+        '专注时长：$effectiveWorkMinutes 分钟 · 已累计 ${(totalAccumulated ~/ 60)} 分钟 / ${currentSpeciesData.milestoneMinutes} 分钟',
     };
 
     return FocusDetector(
-      enabled: isRunning && !(timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak),
+      enabled: isRunning &&
+          !(timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak),
       blacklist: settings.focusBlacklist,
       onWitherWarning: () => ref.read(timerServiceProvider).setWithering(true),
       onFocusBack: () => ref.read(timerServiceProvider).setWithering(false),
@@ -142,17 +158,27 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                   const SizedBox(height: 6),
                   // 当前树种名
                   Builder(builder: (context) {
-                    final trees = ref.watch(treeSpeciesListProvider).asData?.value ?? [];
-                    final name = trees.firstWhere(
-                      (t) => t.id == selectedSpecies,
-                      orElse: () => trees.isNotEmpty ? trees.first
-                          : const TreeSpecies(id: '', name: '', price: 0, unlockedByDefault: true, description: '', milestoneMinutes: 90),
-                    ).name;
+                    final trees =
+                        ref.watch(treeSpeciesListProvider).asData?.value ?? [];
+                    final name = trees
+                        .firstWhere(
+                          (t) => t.id == selectedSpecies,
+                          orElse: () => trees.isNotEmpty
+                              ? trees.first
+                              : const TreeSpecies(
+                                  id: '',
+                                  name: '',
+                                  price: 0,
+                                  unlockedByDefault: true,
+                                  description: '',
+                                  milestoneMinutes: 90),
+                        )
+                        .name;
                     return Text(
                       name,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
                     );
                   }),
                   const SizedBox(height: 4),
@@ -171,9 +197,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Align(
+                  const Align(
                     alignment: Alignment.centerRight,
-                    child: const WeatherSelector(),
+                    child: WeatherSelector(),
                   ),
                   const SizedBox(height: 4),
                   _ModeToggle(
@@ -204,15 +230,17 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 24),
-
                   if (isIdle) ...[
                     Slider(
-                      value: _selectedMinutes.toDouble().clamp(sliderMin, sliderMax),
+                      value: _selectedMinutes
+                          .toDouble()
+                          .clamp(sliderMin, sliderMax),
                       min: sliderMin,
                       max: sliderMax,
                       divisions: (sliderMax - sliderMin).round(),
                       label: '$_selectedMinutes 分钟',
-                      onChanged: (_selectedMode == TimerMode.pomodoro || _selectedMode == TimerMode.stopwatch)
+                      onChanged: (_selectedMode == TimerMode.pomodoro ||
+                              _selectedMode == TimerMode.stopwatch)
                           ? null
                           : (v) => setState(() => _selectedMinutes = v.round()),
                     ),
@@ -223,18 +251,21 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                       label: const Text('开始专注'),
                     ),
                   ],
-
                   if (!isIdle && !isCompleted && !isFailed) ...[
                     Row(
                       children: [
                         Expanded(
                           child: FilledButton.icon(
                             onPressed: isRunning
-                                ? () => ref.read(timerServiceProvider).pauseTimer()
+                                ? () =>
+                                    ref.read(timerServiceProvider).pauseTimer()
                                 : isPaused
-                                    ? () => ref.read(timerServiceProvider).resumeTimer()
+                                    ? () => ref
+                                        .read(timerServiceProvider)
+                                        .resumeTimer()
                                     : null,
-                            icon: Icon(isRunning ? Icons.pause : Icons.play_arrow),
+                            icon: Icon(
+                                isRunning ? Icons.pause : Icons.play_arrow),
                             label: Text(isRunning ? '暂停' : '继续'),
                           ),
                         ),
@@ -255,7 +286,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
-
                   if (isCompleted) ...[
                     _CompletedPanel(
                       isPomodoro: timer.mode == TimerMode.pomodoro,
@@ -263,6 +293,25 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                       pomodoroRound: timer.pomodoroRound,
                       pomodoroTotalRounds: timer.pomodoroTotalRounds,
                       isLongBreak: timer.isLongBreak,
+                      isCountdown: timer.mode == TimerMode.countdown,
+                      onAutoRestart: timer.mode == TimerMode.countdown
+                          ? () {
+                              ref
+                                  .read(timerServiceProvider)
+                                  .setCurrentTag(_selectedTag);
+                              ref.read(timerServiceProvider).setCurrentSpecies(
+                                  ref.read(selectedSpeciesProvider));
+                              ref
+                                  .read(timerServiceProvider)
+                                  .setMilestoneMinutes(0);
+                              ref.read(timerServiceProvider).startTimer(
+                                    Duration(minutes: _selectedMinutes),
+                                    TimerMode.countdown,
+                                    isBreak: false,
+                                  );
+                              ref.read(appMonitorProvider).start(null);
+                            }
+                          : null,
                       onReset: () {
                         setState(() {
                           _nextPomodoroRound = 1;
@@ -270,9 +319,11 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                         });
                         ref.read(timerServiceProvider).reset();
                       },
-                      onSpeciesSelected: (id) => setState(() => _nextSpeciesOverride = id),
+                      onSpeciesSelected: (id) =>
+                          setState(() => _nextSpeciesOverride = id),
                       selectedSpeciesOverride: _nextSpeciesOverride,
-                      onStartBreak: timer.mode == TimerMode.pomodoro && !timer.isPomodoroBreak
+                      onStartBreak: timer.mode == TimerMode.pomodoro &&
+                              !timer.isPomodoroBreak
                           ? () {
                               final isLong = timer.isLongBreak;
                               final breakMinutes = isLong
@@ -283,22 +334,31 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                                     TimerMode.pomodoro,
                                     isBreak: true,
                                     pomodoroRound: timer.pomodoroRound,
-                                    pomodoroTotalRounds: timer.pomodoroTotalRounds,
+                                    pomodoroTotalRounds:
+                                        timer.pomodoroTotalRounds,
                                   );
                             }
                           : null,
-                      onStartNextWork: timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak
+                      onStartNextWork: timer.mode == TimerMode.pomodoro &&
+                              timer.isPomodoroBreak
                           ? () {
-                              final nextRound = (timer.pomodoroRound % timer.pomodoroTotalRounds) + 1;
+                              final nextRound = (timer.pomodoroRound %
+                                      timer.pomodoroTotalRounds) +
+                                  1;
                               setState(() => _nextPomodoroRound = nextRound);
-                              final String species = _nextSpeciesOverride ?? ref.read(selectedSpeciesProvider);
-                              ref.read(timerServiceProvider).setCurrentSpecies(species);
+                              final String species = _nextSpeciesOverride ??
+                                  ref.read(selectedSpeciesProvider);
+                              ref
+                                  .read(timerServiceProvider)
+                                  .setCurrentSpecies(species);
                               ref.read(timerServiceProvider).startTimer(
-                                    Duration(minutes: settings.pomodoroWorkMinutes),
+                                    Duration(
+                                        minutes: settings.pomodoroWorkMinutes),
                                     TimerMode.pomodoro,
                                     isBreak: false,
                                     pomodoroRound: nextRound,
-                                    pomodoroTotalRounds: timer.pomodoroTotalRounds,
+                                    pomodoroTotalRounds:
+                                        timer.pomodoroTotalRounds,
                                   );
                               setState(() => _nextSpeciesOverride = null);
                             }
@@ -307,7 +367,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                       longBreakMinutes: settings.pomodoroLongBreakMinutes,
                     ),
                   ],
-
                   if (isFailed) ...[
                     _FailedPanel(
                       onReset: () => ref.read(timerServiceProvider).reset(),
@@ -330,7 +389,9 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     };
 
     ref.read(timerServiceProvider).setCurrentTag(_selectedTag);
-    ref.read(timerServiceProvider).setCurrentSpecies(ref.read(selectedSpeciesProvider));
+    ref
+        .read(timerServiceProvider)
+        .setCurrentSpecies(ref.read(selectedSpeciesProvider));
 
     // 正计时模式：从树种数据里取里程碑时长
     if (_selectedMode == TimerMode.stopwatch) {
@@ -348,17 +409,19 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                 milestoneMinutes: 90,
               ),
       );
-      ref.read(timerServiceProvider).setMilestoneMinutes(species.milestoneMinutes);
+      ref
+          .read(timerServiceProvider)
+          .setMilestoneMinutes(species.milestoneMinutes);
     } else {
       ref.read(timerServiceProvider).setMilestoneMinutes(0);
     }
     ref.read(timerServiceProvider).startTimer(
-      duration,
-      _selectedMode,
-      isBreak: false,
-      pomodoroRound: _nextPomodoroRound,
-      pomodoroTotalRounds: settings.pomodoroRounds,
-    );
+          duration,
+          _selectedMode,
+          isBreak: false,
+          pomodoroRound: _nextPomodoroRound,
+          pomodoroTotalRounds: settings.pomodoroRounds,
+        );
     ref.read(appMonitorProvider).start(null);
   }
 
@@ -428,7 +491,7 @@ class _ModeToggle extends StatelessWidget {
   }
 }
 
-class _CompletedPanel extends ConsumerWidget {
+class _CompletedPanel extends ConsumerStatefulWidget {
   const _CompletedPanel({
     required this.isPomodoro,
     required this.isPomodoroBreak,
@@ -442,6 +505,8 @@ class _CompletedPanel extends ConsumerWidget {
     this.selectedSpeciesOverride,
     this.onStartBreak,
     this.onStartNextWork,
+    this.isCountdown = false,
+    this.onAutoRestart,
   });
 
   final bool isPomodoro;
@@ -456,17 +521,50 @@ class _CompletedPanel extends ConsumerWidget {
   final String? selectedSpeciesOverride;
   final VoidCallback? onStartBreak;
   final VoidCallback? onStartNextWork;
+  final bool isCountdown;
+  final VoidCallback? onAutoRestart;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_CompletedPanel> createState() => _CompletedPanelState();
+}
+
+class _CompletedPanelState extends ConsumerState<_CompletedPanel> {
+  Timer? _autoRestartTimer;
+  int _countdown = 10;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isCountdown && widget.onAutoRestart != null) {
+      _autoRestartTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (_countdown <= 1) {
+          timer.cancel();
+          _autoRestartTimer = null;
+          setState(() => _countdown = 0);
+          widget.onAutoRestart?.call();
+          return;
+        }
+        setState(() => _countdown -= 1);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoRestartTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final trees = ref.watch(treeSpeciesListProvider).asData?.value ?? [];
     final currentSpecies = ref.watch(selectedSpeciesProvider);
-    final displaySpecies = selectedSpeciesOverride ?? currentSpecies;
+    final displaySpecies = widget.selectedSpeciesOverride ?? currentSpecies;
 
     String title;
-    if (isPomodoro && !isPomodoroBreak) {
-      title = '第 $pomodoroRound/$pomodoroTotalRounds 棵树种下了';
-    } else if (isPomodoro && isPomodoroBreak) {
+    if (widget.isPomodoro && !widget.isPomodoroBreak) {
+      title = '第 ${widget.pomodoroRound}/${widget.pomodoroTotalRounds} 棵树种下了';
+    } else if (widget.isPomodoro && widget.isPomodoroBreak) {
       title = '休息结束';
     } else {
       title = '专注完成，树种下了';
@@ -484,7 +582,9 @@ class _CompletedPanel extends ConsumerWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             // 番茄钟工作段完成后显示树种选择
-            if (isPomodoro && !isPomodoroBreak && trees.isNotEmpty) ...[
+            if (widget.isPomodoro &&
+                !widget.isPomodoroBreak &&
+                trees.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text('下一棵选什么？', style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 6),
@@ -498,23 +598,33 @@ class _CompletedPanel extends ConsumerWidget {
                     final t = trees[i];
                     final selected = displaySpecies == t.id;
                     return GestureDetector(
-                      onTap: () => onSpeciesSelected(t.id),
+                      onTap: () => widget.onSpeciesSelected(t.id),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
                           color: selected
                               ? Theme.of(context).colorScheme.primaryContainer
-                              : Theme.of(context).colorScheme.surfaceContainerHighest,
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
                           border: selected
-                              ? Border.all(color: Theme.of(context).colorScheme.primary, width: 1.5)
+                              ? Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width: 1.5)
                               : null,
                         ),
                         child: Text(
                           t.name,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: selected ? Theme.of(context).colorScheme.onPrimaryContainer : null,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: selected
+                                        ? Theme.of(context)
+                                            .colorScheme
+                                            .onPrimaryContainer
+                                        : null,
+                                  ),
                         ),
                       ),
                     );
@@ -523,22 +633,43 @@ class _CompletedPanel extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: 8),
-            if (isPomodoro && onStartBreak != null) ...[
+            if (widget.isPomodoro && widget.onStartBreak != null) ...[
               FilledButton(
-                onPressed: onStartBreak,
-                child: Text(isLongBreak ? '开始长休息 $longBreakMinutes 分钟' : '开始休息 $breakMinutes 分钟'),
+                onPressed: widget.onStartBreak,
+                child: Text(widget.isLongBreak
+                    ? '开始长休息 ${widget.longBreakMinutes} 分钟'
+                    : '开始休息 ${widget.breakMinutes} 分钟'),
               ),
               const SizedBox(height: 8),
             ],
-            if (isPomodoro && onStartNextWork != null) ...[
+            if (widget.isPomodoro && widget.onStartNextWork != null) ...[
               FilledButton(
-                onPressed: onStartNextWork,
+                onPressed: widget.onStartNextWork,
                 child: const Text('开始下一轮专注'),
               ),
               const SizedBox(height: 8),
             ],
+            if (widget.isCountdown && _countdown > 0) ...[
+              Text(
+                '$_countdown 秒后自动开始下一棵',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              TextButton(
+                onPressed: () {
+                  _autoRestartTimer?.cancel();
+                  _autoRestartTimer = null;
+                  setState(() => _countdown = 0);
+                },
+                child: const Text('取消自动开始'),
+              ),
+            ],
             OutlinedButton(
-              onPressed: onReset,
+              onPressed: () {
+                _autoRestartTimer?.cancel();
+                _autoRestartTimer = null;
+                widget.onReset();
+              },
               child: const Text('回到首页'),
             ),
           ],
@@ -616,7 +747,8 @@ class _TagSelector extends ConsumerWidget {
                       Container(
                         width: 12,
                         height: 12,
-                        decoration: BoxDecoration(color: t.color, shape: BoxShape.circle),
+                        decoration: BoxDecoration(
+                            color: t.color, shape: BoxShape.circle),
                       ),
                       const SizedBox(width: 6),
                       Text(t.name),
@@ -632,4 +764,3 @@ class _TagSelector extends ConsumerWidget {
     );
   }
 }
-
