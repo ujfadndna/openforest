@@ -214,7 +214,7 @@ class AppMonitor {
 
     if (app != _currentApp) {
       // 应用切换，flush 上一条
-      unawaited(_flushCurrent());
+      unawaited(_flushCurrent().catchError((_) {}));
       _currentApp = app;
       _appStartTime = DateTime.now();
     }
@@ -243,6 +243,3 @@ class AppMonitor {
   }
 }
 
-void unawaited(Future<void> future) {
-  future.ignore();
-}

@@ -106,13 +106,17 @@ final timerServiceProvider = ChangeNotifierProvider<TimerService>((ref) {
 
   // 启动时从持久化恢复累计秒数 & 上次选中的树种
   unawaited(() async {
-    final saved = await accRepo.getSeconds();
-    ref.read(accumulatedSecondsProvider.notifier).state = saved;
+    try {
+      final saved = await accRepo.getSeconds();
+      ref.read(accumulatedSecondsProvider.notifier).state = saved;
 
-    final prefs = await SharedPreferences.getInstance();
-    final lastSpecies = prefs.getString('last_species');
-    if (lastSpecies != null) {
-      ref.read(selectedSpeciesProvider.notifier).state = lastSpecies;
+      final prefs = await SharedPreferences.getInstance();
+      final lastSpecies = prefs.getString('last_species');
+      if (lastSpecies != null) {
+        ref.read(selectedSpeciesProvider.notifier).state = lastSpecies;
+      }
+    } catch (e) {
+      debugPrint('Init error: $e');
     }
   }());
 
@@ -187,12 +191,15 @@ final timerServiceProvider = ChangeNotifierProvider<TimerService>((ref) {
 
   // 中止 → 清零累计
   timer.onFailed = () async {
-    if (timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak) return;
-
-    await appMonitor.stop();
-
-    ref.read(accumulatedSecondsProvider.notifier).state = 0;
-    await accRepo.clear();
+    try {
+      if (timer.mode == TimerMode.pomodoro && timer.isPomodoroBreak) return;
+      await appMonitor.stop();
+      ref.read(accumulatedSecondsProvider.notifier).state = 0;
+      await accRepo.clear();
+    } catch (e, st) {
+      debugPrint('onFailed error: $e');
+      debugPrint('$st');
+    }
   };
 
   unawaited(ref.read(settingsControllerProvider.notifier).ensureLoaded());

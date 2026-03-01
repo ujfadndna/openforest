@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_notifier/local_notifier.dart';
 import 'package:window_manager/window_manager.dart';
@@ -14,6 +13,11 @@ import 'features/forest/forest_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('FlutterError: ${details.exception}');
+  };
 
   if (_isDesktop()) {
     await windowManager.ensureInitialized();
