@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_notifier/local_notifier.dart';
@@ -68,6 +70,29 @@ final accumulatedSecondsProvider = StateProvider<int>((ref) => 0);
 
 /// 森林数据刷新信号（每次种树后 +1）
 final forestRefreshSignal = StateProvider<int>((ref) => 0);
+
+/// 今日已完成专注总分钟数（种树后刷新 + 跨日自动归零）
+final todayFocusMinutesProvider = FutureProvider<int>((ref) async {
+  ref.watch(forestRefreshSignal);
+  final repo = ref.read(sessionRepositoryProvider);
+  final now = DateTime.now();
+  final start = DateTime(now.year, now.month, now.day);
+  final end = start.add(const Duration(days: 1));
+
+  // 跨日自动归零：到明天 00:00 时 invalidate
+  final msUntilMidnight = end.difference(now).inMilliseconds;
+  if (msUntilMidnight > 0) {
+    final timer = Timer(Duration(milliseconds: msUntilMidnight + 500), () {
+      ref.invalidateSelf();
+    });
+    ref.onDispose(timer.cancel);
+  }
+
+  final sessions = await repo.getSessionsBetween(start, end);
+  return sessions
+      .where((s) => s.completed)
+      .fold<int>(0, (sum, s) => sum + s.durationMinutes);
+});
 
 /// 当前选中的树种（商店选择，计时器使用）
 final selectedSpeciesProvider = StateProvider<String>((ref) => 'oak');

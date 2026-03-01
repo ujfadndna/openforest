@@ -116,18 +116,16 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     final sliderMin = settings.minFocusMinutes.toDouble();
     final sliderMax = settings.maxFocusMinutes.toDouble();
 
-    final effectiveWorkMinutes = _selectedMode == TimerMode.pomodoro
-        ? settings.pomodoroWorkMinutes
-        : _selectedMinutes;
+    final todayMinutes = ref.watch(todayFocusMinutesProvider).valueOrNull ?? 0;
 
     final durationLabel = switch (_selectedMode) {
       TimerMode.pomodoro => timer.isPomodoroBreak
           ? (timer.isLongBreak
               ? '长休息 ${settings.pomodoroLongBreakMinutes} 分钟'
               : '休息 ${settings.pomodoroBreakMinutes} 分钟')
-          : '番茄钟 第${timer.pomodoroRound}/${timer.pomodoroTotalRounds}个 · 已累计 ${(totalAccumulated ~/ 60)} 分钟 / ${currentSpeciesData.milestoneMinutes} 分钟',
+          : '番茄钟 第${timer.pomodoroRound}/${timer.pomodoroTotalRounds}个 · 今日专注 $todayMinutes 分钟',
       _ =>
-        '专注时长：$effectiveWorkMinutes 分钟 · 已累计 ${(totalAccumulated ~/ 60)} 分钟 / ${currentSpeciesData.milestoneMinutes} 分钟',
+        '今日专注时长：$todayMinutes 分钟 · 已累计 ${(totalAccumulated ~/ 60)} / ${currentSpeciesData.milestoneMinutes} 分钟',
     };
 
     return FocusDetector(
