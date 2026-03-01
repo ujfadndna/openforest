@@ -27,7 +27,7 @@ const _kEndHour = 24.0; // 横轴结束时刻（24:00）
 
 final forestSessionsProvider =
     FutureProvider<List<FocusSessionModel>>((ref) async {
-  ref.watch(timerServiceProvider); // 专注完成后自动刷新
+  ref.watch(forestRefreshSignal); // 种树后才刷新
   final repo = ref.read(sessionRepositoryProvider);
   return repo.getAllCompleted();
 });

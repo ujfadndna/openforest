@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_notifier/local_notifier.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_monitor.dart';
 import '../../core/timer_service.dart';
@@ -65,6 +66,9 @@ final accumulatedProgressProvider =
 /// 累计进度状态（秒数），用于进度条显示
 final accumulatedSecondsProvider = StateProvider<int>((ref) => 0);
 
+/// 森林数据刷新信号（每次种树后 +1）
+final forestRefreshSignal = StateProvider<int>((ref) => 0);
+
 /// 当前选中的树种（商店选择，计时器使用）
 final selectedSpeciesProvider = StateProvider<String>((ref) => 'oak');
 
@@ -75,10 +79,16 @@ final timerServiceProvider = ChangeNotifierProvider<TimerService>((ref) {
   final appMonitor = ref.read(appMonitorProvider);
   final accRepo = ref.read(accumulatedProgressProvider);
 
-  // 启动时从持久化恢复累计秒数
+  // 启动时从持久化恢复累计秒数 & 上次选中的树种
   unawaited(() async {
     final saved = await accRepo.getSeconds();
     ref.read(accumulatedSecondsProvider.notifier).state = saved;
+
+    final prefs = await SharedPreferences.getInstance();
+    final lastSpecies = prefs.getString('last_species');
+    if (lastSpecies != null) {
+      ref.read(selectedSpeciesProvider.notifier).state = lastSpecies;
+    }
   }());
 
   // 完成一段专注（非休息）→ 累加秒数，够了就种树
@@ -143,6 +153,7 @@ final timerServiceProvider = ChangeNotifierProvider<TimerService>((ref) {
       ref.read(accumulatedSecondsProvider.notifier).state = accumulated;
       await accRepo.save(accumulated, species);
       if (treePlanted) timer.markSessionSaved();
+      if (treePlanted) ref.read(forestRefreshSignal.notifier).state++;
     } catch (e, st) {
       debugPrint('onComplete error: $e');
       debugPrint('$st');
@@ -157,53 +168,6 @@ final timerServiceProvider = ChangeNotifierProvider<TimerService>((ref) {
 
     ref.read(accumulatedSecondsProvider.notifier).state = 0;
     await accRepo.clear();
-  };
-
-  // 正计时里程碑：每达到一个里程碑就种一棵树
-  timer.onMilestoneReached = () async {
-    try {
-      final species = timer.currentSpecies;
-      final trees = ref.read(treeSpeciesListProvider).asData?.value ?? [];
-      final treeData = trees.firstWhere(
-        (t) => t.id == species,
-        orElse: () => trees.isNotEmpty
-            ? trees.first
-            : const TreeSpecies(
-                id: 'oak',
-                name: '橡树',
-                price: 0,
-                unlockedByDefault: true,
-                description: '',
-                milestoneMinutes: 45),
-      );
-
-      final end = DateTime.now();
-      final start = end.subtract(Duration(minutes: treeData.milestoneMinutes));
-
-      final sessionId = await sessionRepo.addSession(
-        startTime: start,
-        endTime: end,
-        durationMinutes: treeData.milestoneMinutes,
-        completed: true,
-        coinsEarned: 0,
-        treeSpecies: species,
-        tag: timer.currentTag?.name,
-      );
-      appMonitor.updateSessionId(sessionId);
-
-      final settings = ref.read(settingsControllerProvider);
-      if (settings.treeNotification) {
-        final notification = LocalNotification(
-          title: 'OpenForest',
-          body: '一棵${treeData.name}种下了，继续专注吧',
-        );
-        await notification.show();
-      }
-      timer.markSessionSaved();
-    } catch (e, st) {
-      debugPrint('onMilestoneReached error: $e');
-      debugPrint('$st');
-    }
   };
 
   unawaited(ref.read(settingsControllerProvider.notifier).ensureLoaded());

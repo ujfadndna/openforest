@@ -1,5 +1,5 @@
 #define MyAppName "OpenForest"
-#define MyAppVersion "1.2.5"
+#define MyAppVersion "1.2.6"
 #define MyAppPublisher "ujfadndna"
 #define MyAppURL "https://github.com/ujfadndna/openforest"
 #define MyAppExeName "openforest.exe"

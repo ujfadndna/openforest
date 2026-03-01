@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_monitor.dart';
 import '../../core/focus_detector.dart';
@@ -30,6 +31,23 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
   TagModel? _selectedTag;
   int _nextPomodoroRound = 1;
   String? _nextSpeciesOverride;
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedPrefs();
+  }
+
+  Future<void> _loadSavedPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _selectedMinutes = prefs.getInt('last_focus_minutes') ?? _selectedMinutes;
+      final modeIdx = prefs.getInt('last_timer_mode');
+      if (modeIdx != null && modeIdx < TimerMode.values.length) {
+        _selectedMode = TimerMode.values[modeIdx];
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -93,10 +111,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
         ? (totalAccumulated % requiredSeconds) / requiredSeconds
         : 0.0;
 
-    final displayDuration = switch (timer.mode) {
-      TimerMode.stopwatch => timer.elapsed,
-      _ => timer.remaining,
-    };
+    final displayDuration = timer.remaining;
 
     final sliderMin = settings.minFocusMinutes.toDouble();
     final sliderMax = settings.maxFocusMinutes.toDouble();
@@ -106,7 +121,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
         : _selectedMinutes;
 
     final durationLabel = switch (_selectedMode) {
-      TimerMode.stopwatch => '正计时 · 已累计 ${(totalAccumulated ~/ 60)} 分钟',
       TimerMode.pomodoro => timer.isPomodoroBreak
           ? (timer.isLongBreak
               ? '长休息 ${settings.pomodoroLongBreakMinutes} 分钟'
@@ -205,7 +219,12 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                   _ModeToggle(
                     mode: _selectedMode,
                     enabled: isIdle,
-                    onChanged: (m) => setState(() => _selectedMode = m),
+                    onChanged: (m) {
+                      setState(() => _selectedMode = m);
+                      SharedPreferences.getInstance().then(
+                        (p) => p.setInt('last_timer_mode', m.index),
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                   if (isIdle) ...[
@@ -239,10 +258,14 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                       max: sliderMax,
                       divisions: (sliderMax - sliderMin).round(),
                       label: '$_selectedMinutes 分钟',
-                      onChanged: (_selectedMode == TimerMode.pomodoro ||
-                              _selectedMode == TimerMode.stopwatch)
+                      onChanged: (_selectedMode == TimerMode.pomodoro)
                           ? null
-                          : (v) => setState(() => _selectedMinutes = v.round()),
+                          : (v) {
+                              setState(() => _selectedMinutes = v.round());
+                              SharedPreferences.getInstance().then(
+                                (p) => p.setInt('last_focus_minutes', _selectedMinutes),
+                              );
+                            },
                     ),
                     const SizedBox(height: 16),
                     FilledButton.icon(
@@ -301,9 +324,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                                   .setCurrentTag(_selectedTag);
                               ref.read(timerServiceProvider).setCurrentSpecies(
                                   ref.read(selectedSpeciesProvider));
-                              ref
-                                  .read(timerServiceProvider)
-                                  .setMilestoneMinutes(0);
                               ref.read(timerServiceProvider).startTimer(
                                     Duration(minutes: _selectedMinutes),
                                     TimerMode.countdown,
@@ -384,7 +404,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
   void _onStartPressed(SettingsState settings) {
     final duration = switch (_selectedMode) {
       TimerMode.pomodoro => Duration(minutes: settings.pomodoroWorkMinutes),
-      TimerMode.stopwatch => const Duration(hours: 24),
       _ => Duration(minutes: _selectedMinutes),
     };
 
@@ -392,29 +411,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     ref
         .read(timerServiceProvider)
         .setCurrentSpecies(ref.read(selectedSpeciesProvider));
-
-    // 正计时模式：从树种数据里取里程碑时长
-    if (_selectedMode == TimerMode.stopwatch) {
-      final trees = ref.read(treeSpeciesListProvider).asData?.value ?? [];
-      final species = trees.firstWhere(
-        (t) => t.id == ref.read(selectedSpeciesProvider),
-        orElse: () => trees.isNotEmpty
-            ? trees.first
-            : const TreeSpecies(
-                id: 'oak',
-                name: '橡树',
-                price: 0,
-                unlockedByDefault: true,
-                description: '',
-                milestoneMinutes: 90,
-              ),
-      );
-      ref
-          .read(timerServiceProvider)
-          .setMilestoneMinutes(species.milestoneMinutes);
-    } else {
-      ref.read(timerServiceProvider).setMilestoneMinutes(0);
-    }
     ref.read(timerServiceProvider).startTimer(
           duration,
           _selectedMode,
@@ -475,7 +471,6 @@ class _ModeToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return SegmentedButton<TimerMode>(
       segments: const [
-        ButtonSegment(value: TimerMode.stopwatch, label: Text('正计时')),
         ButtonSegment(value: TimerMode.countdown, label: Text('倒计时')),
         ButtonSegment(value: TimerMode.pomodoro, label: Text('番茄钟')),
       ],

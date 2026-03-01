@@ -1,6 +1,6 @@
 name: openforest
 description: Open source focus timer inspired by Forest
-version: 1.2.5+4
+version: 1.2.6+5
 publish_to: "none"
 
 environment:

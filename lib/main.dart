@@ -143,7 +143,7 @@ class _HomeShellState extends State<HomeShell> {
               ),
             ),
             const VerticalDivider(thickness: 1, width: 1),
-            Expanded(child: _pages[_index]),
+            Expanded(child: IndexedStack(index: _index, children: _pages)),
           ],
         ),
       ),

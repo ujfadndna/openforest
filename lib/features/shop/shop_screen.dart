@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../timer/timer_provider.dart';
 import '../timer/tree_painter.dart';
@@ -43,9 +44,12 @@ class ShopScreen extends ConsumerWidget {
                       description: t.description,
                       milestoneMinutes: t.milestoneMinutes,
                       selected: t.id == selectedId,
-                      onTap: () => ref
-                          .read(selectedSpeciesProvider.notifier)
-                          .state = t.id,
+                      onTap: () {
+                      ref.read(selectedSpeciesProvider.notifier).state = t.id;
+                      SharedPreferences.getInstance().then(
+                        (p) => p.setString('last_species', t.id),
+                      );
+                    },
                     );
                   },
                 ),

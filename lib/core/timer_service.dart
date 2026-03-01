@@ -9,9 +9,6 @@ enum TimerMode {
   /// 倒计时（常规专注）
   countdown,
 
-  /// 正计时（本 MVP 暂未在 UI 暴露，但核心逻辑支持）
-  stopwatch,
-
   /// 番茄钟（工作/休息）
   pomodoro,
 }
@@ -27,7 +24,7 @@ enum TimerState {
 
 /// 计时服务（核心逻辑）
 ///
-/// - 倒计时 / 正计时 / 番茄钟
+/// - 倒计时 / 番茄钟
 /// - 完成回调：onComplete(coinsEarned)
 /// - 失败回调：onFailed()
 /// - 金币规则：每分钟 1 金币，最少 10 分钟才给金币
@@ -63,20 +60,11 @@ class TimerService extends ChangeNotifier {
   // 当前选中树种
   String _currentSpecies = 'oak';
 
-  // 正计时里程碑（分钟），0 表示不启用
-  int _milestoneMinutes = 0;
-
-  // 已完成的里程碑数量
-  int _milestonesCompleted = 0;
-
   /// 完成回调（UI/Provider 可注册）
   Future<void> Function(int coinsEarned)? onComplete;
 
   /// 失败回调（UI/Provider 可注册）
   Future<void> Function()? onFailed;
-
-  /// 正计时里程碑回调（每达到一个里程碑触发一次）
-  Future<void> Function()? onMilestoneReached;
 
   TimerMode get mode => _mode;
   TimerState get state => _state;
@@ -92,16 +80,6 @@ class TimerService extends ChangeNotifier {
   bool get withering => _withering;
   TagModel? get currentTag => _currentTag;
   String get currentSpecies => _currentSpecies;
-  int get milestoneMinutes => _milestoneMinutes;
-  int get milestonesCompleted => _milestonesCompleted;
-
-  /// 正计时模式下，当前里程碑内的进度 0.0~1.0
-  double get milestoneProgress {
-    if (_mode != TimerMode.stopwatch || _milestoneMinutes <= 0) return 0.0;
-    final cycleMs = _milestoneMinutes * 60 * 1000;
-    final posInCycle = _elapsed.inMilliseconds % cycleMs;
-    return posInCycle / cycleMs;
-  }
 
   void setCurrentTag(TagModel? tag) {
     _currentTag = tag;
@@ -113,14 +91,8 @@ class TimerService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setMilestoneMinutes(int minutes) {
-    _milestoneMinutes = minutes;
-    notifyListeners();
-  }
-
   /// 进度 0.0 ~ 1.0
   double get progress {
-    if (_mode == TimerMode.stopwatch) return milestoneProgress;
     final totalMs = _targetDuration.inMilliseconds;
     if (totalMs <= 0) return 0.0;
     final p = _elapsed.inMilliseconds / totalMs;
@@ -159,7 +131,7 @@ class TimerService extends ChangeNotifier {
       ..start();
 
     _elapsed = Duration.zero;
-    _remaining = _mode == TimerMode.stopwatch ? Duration.zero : _targetDuration;
+    _remaining = _targetDuration;
 
     // 每秒刷新一次 UI
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
@@ -218,9 +190,6 @@ class TimerService extends ChangeNotifier {
     _isPomodoroBreak = false;
     _pomodoroRound = 1;
     _currentTag = null;
-    _currentSpecies = 'oak';
-    _milestoneMinutes = 0;
-    _milestonesCompleted = 0;
     notifyListeners();
   }
 
@@ -238,23 +207,6 @@ class TimerService extends ChangeNotifier {
     if (_state != TimerState.running) return;
 
     _elapsed = _stopwatch.elapsed;
-
-    if (_mode == TimerMode.stopwatch) {
-      // 正计时：检查是否达到新里程碑
-      if (_milestoneMinutes > 0) {
-        final newMilestones = _elapsed.inMinutes ~/ _milestoneMinutes;
-        if (newMilestones > _milestonesCompleted) {
-          _milestonesCompleted = newMilestones;
-          notifyListeners();
-          unawaited(onMilestoneReached?.call());
-        } else {
-          notifyListeners();
-        }
-      } else {
-        notifyListeners();
-      }
-      return;
-    }
 
     final remain = _targetDuration - _elapsed;
     _remaining = remain.isNegative ? Duration.zero : remain;
