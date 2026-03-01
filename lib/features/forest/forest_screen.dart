@@ -375,6 +375,7 @@ class _ForestViewState extends State<_ForestView>
                       width: canvasW,
                       height: virtualH,
                       child: Stack(
+                        clipBehavior: Clip.none,
                         children: [
                           // 静态树木层（无摇摆，约70%）：仅在视口平移/缩放时重建
                           AnimatedBuilder(
@@ -417,8 +418,18 @@ class _ForestViewState extends State<_ForestView>
                             },
                           ),
                           // 交互层：轻量 per-tree 透明 hit target（无 CustomPaint）
-                          for (final i in _sortedIndices)
-                            _buildInteractionWidget(i, viewportW, canvasW),
+                          // ExcludeSemantics 阻止 GestureDetector/MouseRegion 向 AXTree 注册 semantics，
+                          // 避免拖动/缩放时 250+ 交互 widget 的 semantics 增量更新导致 accessibility_bridge crash
+                          Positioned.fill(
+                            child: ExcludeSemantics(
+                              child: Stack(
+                                children: [
+                                  for (final i in _sortedIndices)
+                                    _buildInteractionWidget(i, viewportW, canvasW),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),

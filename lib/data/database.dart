@@ -77,6 +77,16 @@ CREATE TABLE IF NOT EXISTS app_usages (
   recorded_at INTEGER NOT NULL
 );
 ''');
+    await db.runCustom('''
+CREATE TABLE IF NOT EXISTS review_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  interval_days INTEGER NOT NULL DEFAULT 15,
+  last_reviewed_at INTEGER,
+  created_at INTEGER NOT NULL,
+  archived INTEGER NOT NULL DEFAULT 0
+);
+''');
     await db.runInsert(
       'INSERT OR IGNORE INTO user_coins (id, total_coins, total_focus_minutes) VALUES (1, 0, 0);',
       const [],
