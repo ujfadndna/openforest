@@ -221,7 +221,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                       setState(() => _selectedMode = m);
                       SharedPreferences.getInstance().then(
                         (p) => p.setInt('last_timer_mode', m.index),
-                      );
+                      ).catchError((_) => false);
                     },
                   ),
                   const SizedBox(height: 12),
@@ -262,7 +262,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                               setState(() => _selectedMinutes = v.round());
                               SharedPreferences.getInstance().then(
                                 (p) => p.setInt('last_focus_minutes', _selectedMinutes),
-                              );
+                              ).catchError((_) => false);
                             },
                     ),
                     const SizedBox(height: 16),

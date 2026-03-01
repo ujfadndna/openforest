@@ -534,6 +534,7 @@ class AnimatedTree extends StatefulWidget {
     this.seed = 1,
     this.speciesId = 'oak',
     this.windFactor = 0.0,
+    this.animate = true,
   });
 
   final double progress;
@@ -543,6 +544,7 @@ class AnimatedTree extends StatefulWidget {
 
   /// 风力倍率（0.0=无风，1.0=强风，2.0=暴风）
   final double windFactor;
+  final bool animate;
 
   @override
   State<AnimatedTree> createState() => _AnimatedTreeState();
@@ -559,7 +561,10 @@ class _AnimatedTreeState extends State<AnimatedTree>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 4200),
-    )..repeat(reverse: true);
+    );
+    if (widget.animate) {
+      _ctrl.repeat(reverse: true);
+    }
 
     _sway = Tween<double>(begin: -0.028, end: 0.028).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeInOutSine),
@@ -582,7 +587,7 @@ class _AnimatedTreeState extends State<AnimatedTree>
           state: widget.state,
           seed: widget.seed,
           speciesId: widget.speciesId,
-          swayAngle: widget.state == TreeVisualState.dead
+          swayAngle: !widget.animate || widget.state == TreeVisualState.dead
               ? 0.0
               : _sway.value * (1.0 + widget.windFactor * 2.0),
         ),

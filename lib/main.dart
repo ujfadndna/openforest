@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +19,12 @@ Future<void> main() async {
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
     debugPrint('FlutterError: ${details.exception}');
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Uncaught error: $error');
+    debugPrint('$stack');
+    return true;
   };
 
   if (_isDesktop()) {
@@ -147,7 +155,7 @@ class _HomeShellState extends State<HomeShell> {
               ),
             ),
             const VerticalDivider(thickness: 1, width: 1),
-            Expanded(child: IndexedStack(index: _index, children: _pages)),
+            Expanded(child: ExcludeSemantics(child: IndexedStack(index: _index, children: _pages))),
           ],
         ),
       ),

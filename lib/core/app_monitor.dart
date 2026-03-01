@@ -84,8 +84,14 @@ String? getForegroundAppName() {
 
     final buf = calloc<Uint16>(512);
     final sizePtr = calloc<Uint32>()..value = 512;
-    _queryFullProcessImageNameW!(hProcess, 0, buf.cast<Utf16>(), sizePtr);
+    final result = _queryFullProcessImageNameW!(hProcess, 0, buf.cast<Utf16>(), sizePtr);
     _closeHandle!(hProcess);
+
+    if (result == 0 || sizePtr.value == 0) {
+      calloc.free(buf);
+      calloc.free(sizePtr);
+      return null;
+    }
 
     final fullPath = buf.cast<Utf16>().toDartString();
     calloc.free(buf);
@@ -140,8 +146,14 @@ List<String> getRunningProcesses() {
 
       final buf = calloc<Uint16>(512);
       final sizePtr = calloc<Uint32>()..value = 512;
-      _queryFullProcessImageNameW!(hProcess, 0, buf.cast<Utf16>(), sizePtr);
+      final result = _queryFullProcessImageNameW!(hProcess, 0, buf.cast<Utf16>(), sizePtr);
       _closeHandle!(hProcess);
+
+      if (result == 0 || sizePtr.value == 0) {
+        calloc.free(buf);
+        calloc.free(sizePtr);
+        continue;
+      }
 
       final fullPath = buf.cast<Utf16>().toDartString();
       calloc.free(buf);

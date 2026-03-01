@@ -11,7 +11,9 @@ import '../database.dart';
 class CoinRepository {
   CoinRepository(this._db) {
     // 初次创建时拉取一次最新值，避免 UI 初始为空
-    unawaited(refreshAll());
+    unawaited(refreshAll().catchError((e) {
+      debugPrint('CoinRepository init error: $e');
+    }));
   }
 
   final AppDatabase _db;
@@ -82,11 +84,10 @@ class CoinRepository {
   /// 刷新所有缓存流（金币/分钟/解锁树）
   Future<void> refreshAll() async {
     final row = await _getUserCoinsRow();
-    _coinsController.add(row.totalCoins);
-    _minutesController.add(row.totalFocusMinutes);
-
+    if (!_coinsController.isClosed) _coinsController.add(row.totalCoins);
+    if (!_minutesController.isClosed) _minutesController.add(row.totalFocusMinutes);
     final unlocked = await getUnlockedTreeIds();
-    _unlockedTreesController.add(unlocked);
+    if (!_unlockedTreesController.isClosed) _unlockedTreesController.add(unlocked);
   }
 
   Future<_UserCoinsRow> _getUserCoinsRow() async {

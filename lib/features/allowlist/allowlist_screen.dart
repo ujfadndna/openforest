@@ -19,8 +19,13 @@ class _AllowlistScreenState extends ConsumerState<AllowlistScreen> {
 
   Future<void> _loadProcesses() async {
     setState(() => _loadingProcesses = true);
-    final list = await Future.microtask(getRunningProcesses);
-    if (mounted) setState(() { _processes = list; _loadingProcesses = false; });
+    try {
+      final list = await Future.microtask(getRunningProcesses);
+      if (mounted) setState(() { _processes = list; _loadingProcesses = false; });
+    } catch (e) {
+      debugPrint('Load processes error: $e');
+      if (mounted) setState(() => _loadingProcesses = false);
+    }
   }
 
   void _showProcessPicker(BuildContext context, SettingsController controller) {
@@ -30,7 +35,7 @@ class _AllowlistScreenState extends ConsumerState<AllowlistScreen> {
       builder: (ctx) => _ProcessPickerDialog(
         processes: _processes,
         existing: existing,
-        onAdd: (name) => unawaited(controller.addToBlacklist(name)),
+        onAdd: (name) => unawaited(controller.addToBlacklist(name).catchError((_) {})),
       ),
     );
   }

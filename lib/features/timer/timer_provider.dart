@@ -202,7 +202,9 @@ final timerServiceProvider = ChangeNotifierProvider<TimerService>((ref) {
     }
   };
 
-  unawaited(ref.read(settingsControllerProvider.notifier).ensureLoaded());
+  unawaited(ref.read(settingsControllerProvider.notifier).ensureLoaded().catchError((e) {
+    debugPrint('Settings load error: $e');
+  }));
 
   return timer;
 });

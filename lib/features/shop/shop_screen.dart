@@ -48,7 +48,7 @@ class ShopScreen extends ConsumerWidget {
                       ref.read(selectedSpeciesProvider.notifier).state = t.id;
                       SharedPreferences.getInstance().then(
                         (p) => p.setString('last_species', t.id),
-                      );
+                      ).catchError((_) => false);
                     },
                     );
                   },
@@ -126,6 +126,7 @@ class _TreeCardState extends State<_TreeCard> {
                           state: TreeVisualState.completed,
                           seed: widget.speciesId.hashCode,
                           speciesId: widget.speciesId,
+                          animate: false,
                         ),
                       ),
                       if (widget.selected)
