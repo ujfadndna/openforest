@@ -144,8 +144,40 @@ final timerServiceProvider = ChangeNotifierProvider<TimerService>((ref) {
     await accRepo.clear();
   };
 
-  // 正计时里程碑回调不再使用（统一由 onComplete 处理）
-  timer.onMilestoneReached = null;
+  // 正计时里程碑：每达到一个里程碑就种一棵树
+  timer.onMilestoneReached = () async {
+    final species = timer.currentSpecies;
+    final trees = ref.read(treeSpeciesListProvider).asData?.value ?? [];
+    final treeData = trees.firstWhere(
+      (t) => t.id == species,
+      orElse: () => trees.isNotEmpty
+          ? trees.first
+          : const TreeSpecies(id: 'oak', name: '橡树', price: 0, unlockedByDefault: true, description: '', milestoneMinutes: 45),
+    );
+
+    final end = DateTime.now();
+    final start = end.subtract(Duration(minutes: treeData.milestoneMinutes));
+
+    final sessionId = await sessionRepo.addSession(
+      startTime: start,
+      endTime: end,
+      durationMinutes: treeData.milestoneMinutes,
+      completed: true,
+      coinsEarned: 0,
+      treeSpecies: species,
+      tag: timer.currentTag?.name,
+    );
+    appMonitor.updateSessionId(sessionId);
+
+    final settings = ref.read(settingsControllerProvider);
+    if (settings.treeNotification) {
+      final notification = LocalNotification(
+        title: 'OpenForest',
+        body: '一棵${treeData.name}种下了，继续专注吧',
+      );
+      await notification.show();
+    }
+  };
 
   unawaited(ref.read(settingsControllerProvider.notifier).ensureLoaded());
 
